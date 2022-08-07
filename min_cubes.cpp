@@ -110,12 +110,12 @@ bool is_hitting(vector<Mask>& masks) {
     return cov_count == (1<< n);
 }
 
-bool is_irreducible(vector<Mask>& masks, Mask& witness) {
+bool is_irreducible(const vector<Mask>& masks, Mask& witness) {
     int n = masks[0].size();
     int three_to_n = 1;
     for (int i = 0; i < n; ++i) three_to_n *= 3;
     // -1 because we don't want *^n as a witness
-    for (int mask_encoding = 0; mask_encoding < three_to_n - 1; ++mask_encoding) {
+    for (int mask_encoding = three_to_n - 2; mask_encoding >= 0; --mask_encoding) {
         Mask candidate(n, mask_encoding);
         bool result = true;
         // cout << "Candidate: " << candidate.tostring() << endl;
@@ -135,6 +135,17 @@ bool is_irreducible(vector<Mask>& masks, Mask& witness) {
     return true;
 }
 
+vector<Mask> reduce(const vector<Mask>& masks) {
+    cout << "Reducing: " << masks.size() << endl;
+    Mask witness;
+    if (is_irreducible(masks, witness)) return masks;
+    vector<Mask> step;
+    for (Mask mask : masks)
+        if (!mask.within(witness)) step.push_back(mask);
+    step.push_back(witness);
+    return reduce(step);
+}
+
 int main() {
      int num_masks;
      cin >> num_masks;
@@ -150,7 +161,11 @@ int main() {
      bool result = is_irreducible(masks, witness);
      if (!result) {
          cout << "Reducible: " << witness.tostring() << endl;
+         vector<Mask> reduced = reduce(masks);
+         cout << reduced.size() << endl;
+         for (Mask mask : reduced) cout << mask.tostring() << endl;
      } else {
          cout << "Irreducible" << endl;
      }
+     
 }
