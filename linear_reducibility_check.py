@@ -83,5 +83,7 @@ if hitting:
     reducible, witness = is_reducible(lin_masks)
     if reducible:
         print('Reducible: ', witness)
+        result = [x for x in lin_masks if not within(x, witness)] + [witness]
+        print(is_reducible(result))
     else:
         print('Irreducible')
