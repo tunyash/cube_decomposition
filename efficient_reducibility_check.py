@@ -1,4 +1,4 @@
-from itertools import product
+from itertools import product, combinations
 
 def unite(a, b):
     assert len(a) == len(b)
@@ -30,10 +30,24 @@ def is_reducible(masks):
             return True, cur
     return False, ""
 
+def is_hitting(masks):
+    covered = 0
+    for i in masks:
+        covered += 2**sum(1 if z=='*' else 0 for z in i)
+    if covered != 2**len(masks[0]):
+        return False
+    for i, j in combinations(masks, 2):
+        if intersects(i, j):
+            return False
+    return True
+
 n = int(input())
 masks = []
 for i in range(n):
     masks.append(input())
+
+if not is_hitting(masks):
+    print('Not hitting')
 
 answer, example = is_reducible(masks)
 if answer:
