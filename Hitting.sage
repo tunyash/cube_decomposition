@@ -27,6 +27,7 @@ class Hitting:
         self.F = F
         n = self.n = len(F[0])
         m = self.m = len(F)
+        assert(all(all(c in '01*' for c in x) for x in F))
         assert(self.is_hitting())
 
     def __repr__(self):
@@ -58,6 +59,10 @@ class Hitting:
     def is_homogeneous(self):
         "determine whether given formula is homogeneous"
         return all(nstars(s) == nstars(self.F[0]) for s in self.F)
+
+    def is_tight(self):
+        "determine whether given formula is tight (mentions all variables)"
+        return all(any(x[i] != '*' for x in self.F) for i in range(self.n))
 
     def split(self, i):
         "recursive construction which splits on the i'th coordinate"
