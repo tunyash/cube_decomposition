@@ -28,7 +28,7 @@ class Hitting:
         n = self.n = len(F[0])
         m = self.m = len(F)
         assert(all(all(c in '01*' for c in x) for x in F))
-        assert(self.is_hitting())
+        assert(self.is_hitting() == True)
 
     def __repr__(self):
         return f'Hitting({repr(self.F)})'
@@ -56,6 +56,49 @@ class Hitting:
                 if s != '*' * n: return s
         return True
 
+    def reducibility_index_serial(self, by_pair = False):
+        "return maximum number of joins in serial implementation"
+        n, m, A = self.n, self.m, self.F
+        pairs = dict()
+        max_iter = 0
+        for i in range(m):
+            for j in range(i):
+                s = joins(A[i],A[j])
+                changed = True
+                iter = 0
+                while changed:
+                    changed = False
+                    for t in A:
+                        if escapes(t,s):
+                            s = joins(t,s)
+                            iter += 1
+                            changed = True
+                pairs[(i,j)] = iter
+                max_iter = max(iter, max_iter)
+        return (max_iter, pairs) if by_pair else max_iter
+
+    def reducibility_index_parallel(self, by_pair = False):
+        "return maximum number of eventful loop iterations in parallel implementation"
+        n, m, A = self.n, self.m, self.F
+        max_iter = 0
+        pairs = dict()
+        for i in range(m):
+            for j in range(i):
+                s = joins(A[i],A[j])
+                iter = -1
+                while True:
+                    iter += 1
+                    r = s
+                    for t in A:
+                        if escapes(t,s):
+                            r = joins(t,r)
+                    if r == s:
+                        break
+                    s = r
+                pairs[(i,j)] = iter
+                max_iter = max(iter, max_iter)
+        return (max_iter, pairs) if by_pair else max_iter
+
     def is_homogeneous(self):
         "determine whether given formula is homogeneous"
         return all(nstars(s) == nstars(self.F[0]) for s in self.F)
@@ -63,6 +106,18 @@ class Hitting:
     def is_tight(self):
         "determine whether given formula is tight (mentions all variables)"
         return all(any(x[i] != '*' for x in self.F) for i in range(self.n))
+
+    def to_plus(self):
+        "construct an equivalent HittingPlus instance"
+        V = VectorSpace(GF(2), self.n + 1)
+        L = []
+        for x in self.F:
+            S = [[1] + [int(c == '1') for c in x]]
+            for (i,c) in enumerate(x):
+                if c == '*':
+                    S += [[0] + [0] * i + [1] + [0] * (self.n - i - 1)]
+            L.append(V.subspace(map(V, S)))
+        return HittingPlus(L)
 
     def split(self, i):
         "recursive construction which splits on the i'th coordinate"
@@ -165,6 +220,55 @@ class Hitting:
         return all(self.elaborate(P[0]) == product(Q) \
             for (P,Q) in zip(self.proof[-1], self.proof[0]))
 
+class HittingPlus:
+    def __init__(self, F):
+        "init class with a collection of subspaces of VectorSpace(GF(2),n+1) representing the projective closure"
+        self.F = F
+        self.V = F[0].ambient_vector_space()
+        self.n = self.V.dimension() - 1
+        self.m = len(F)
+        self.O = self.V.subspace([self.V([int(i==j) for j in range(self.n+1)])\
+             for i in range(1, self.n+1)]) # O = 0*^n
+        assert(self.is_hitting() == True)
+
+    def __repr__(self):
+        return f'HittingPlus({repr(self.F)})'
+
+    def is_hitting(self):
+        "determine whether formula is hitting"
+        # each subspace intersects 1*^n
+        if any(S <= self.O for S in self.F):
+            return False, 0
+        # the intersection of any two subspaces with 1*^n is empty
+        if not all(self.F[i].intersection(self.F[j]) <= self.O \
+                for i in range(1, self.m) for j in range(i)):
+            return False, 1
+        # the subspaces cover everything
+        return sum(2^S.dimension() for S in self.F) == 2^(self.n + 1)
+
+    def is_tight(self):
+        "determine whether formula is tight"
+        I = self.F[0]
+        for S in self.F:
+            I = I.intersection(S)
+        return I.dimension() == 0
+
+    def is_irreducible(self):
+        "determine whether formula is irreducible"
+        for i in range(self.m):
+            for j in range(i):
+                s = self.F[i] + self.F[j]
+                changed = True
+                while changed:
+                    changed = False
+                    for t in self.F:
+                        if not t.intersection(s) <= self.O and \
+                            not t <= s:
+                            s = t + s
+                            changed = True
+                if s.dimension() < self.n + 1: return s
+        return True
+
 def standard(n):
     "standard construction for n >= 3"
     assert(n >= 3)
@@ -174,6 +278,11 @@ def standard(n):
     F += ['1' * (n-2) + '*0']
     F += ['1' * n]
     return Hitting(F)
+
+def standard_linear(n):
+    "standard construction for n >= 3, joining the two points"
+    H = standard(n).to_plus()
+    return HittingPlus([H.F[0] + H.F[-1]] + H.F[1:-1])
 
 def homogeneous4():
     "homogeneous construction for n = 4"
@@ -185,3 +294,42 @@ def special6():
     F += ['001*1*', '10*1*1', '010*0*', '11*0*0']
     F += ['*111**', '0110**', '1101**']
     return Hitting(F)
+
+def special7():
+    "irreducible hitting(+) formula for n = 5 with 7 subspaces"
+    H = Hitting(['00***', '1001*', '1*00*', '0100*', '1*1*0',\
+         '*1*11', '101*1', '*1101', '011*0', '*1010'])
+    F = H.to_plus().F
+    return HittingPlus([F[0], F[1]+F[3], F[2], F[4], F[5], F[6]+F[8], F[7]+F[9]])
+
+def cubic(n):
+    "irreducible hitting formula (cubic construction)"
+    assert(is_odd(n))
+    assert(n >= 3)
+    m = n // 2
+    F  = ['0' * n]
+    F += ['*' * i + '0' * m + '1' + '*' * (m - i) for i in range(m+1)]
+    F += ['0' * i + '1' + '*' * m + '0' * (m - i) for i in range(m)]
+    F += ['0' * i + '1' + '*' * j + '0' * k + '1' + \
+        '*' * (m - 1 - j - k) + '0' * j + '1' + '*' * (m - 1 - i - j) \
+            for j in range(m) for i in range(m-j) for k in range(m-j)]
+    return Hitting(F)
+
+def cubic_linear(n):
+    "linear version of cubic()"
+    F = cubic(n)
+    i = [j for (j,x) in enumerate(F.F) if nstars(x) == 0][1]
+    H = F.to_plus()
+    return HittingPlus([H.F[0] + H.F[i]] + H.F[1:i] + H.F[i+1:])
+
+def desarguesian_spread(t):
+    "irreducible hitting(+) formula based on the standard Desarguesian spread"
+    V = VectorSpace(GF(2), 2*t)
+    F = GF(2^t)
+    z = F.gen()
+    def base_reduction(x):
+        L = x.polynomial().list()
+        return L + [0] * (t - len(L))
+    return HittingPlus([\
+        V.subspace(V(base_reduction(z^k) + base_reduction(a * z^k)) for k in range(t))\
+        for a in F])
