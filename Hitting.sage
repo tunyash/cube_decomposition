@@ -21,17 +21,50 @@ def nstars(s):
     "compute the dimension of given subcube"
     return len([c for c in s if c == '*'])
 
-class Hitting:
-    def __init__(self, F):
+class HittingMixin:
+    def is_homogeneous(self):
+        "determine whether formula is homogeneous"
+        dims = self.dimensions()
+        return all(x == dims[0] for x in dims)
+
+    def __len__(self):
+        "return number of clauses"
+        return len(self.F)
+
+    def properties(self):
+        "return several properties of self"
+        def histogram(data):
+            D = {}
+            for x in data:
+                if x not in D:
+                    D[x] = 0
+                D[x] += 1
+            return sorted(D.items(), key = lambda kv: kv[0], reverse = True)
+        res = {}
+        res['variables'] = self.n
+        res['clauses'] = self.m
+        res['dimensions'] = histogram(self.dimensions())
+        res['hitting'] = self.is_hitting()
+        res['tight'] = self.is_tight()
+        res['irreducible'] = self.is_irreducible()
+        res['homogeneous'] = self.is_homogeneous()
+        return res
+
+class Hitting(HittingMixin):
+    def __init__(self, F, suppress_check = False):
         "init class with a list of strings over 0/1/*"
         self.F = F
         n = self.n = len(F[0])
         m = self.m = len(F)
         assert(all(all(c in '01*' for c in x) for x in F))
-        assert(self.is_hitting() == True)
+        if not suppress_check:
+            assert(self.is_hitting() == True)
 
     def __repr__(self):
         return f'Hitting({repr(self.F)})'
+
+    def dimensions(self):
+        return [nstars(x) for x in self.F]
 
     def is_hitting(self):
         "determine whether given formula is hitting"
@@ -40,7 +73,7 @@ class Hitting:
             return [(A[i],A[j]) for i in range(m) for j in range(i) if not disjoint(A[i],A[j])]
         return sum(2^nstars(s) for s in A) == 2^n
 
-    def is_irreducible(self):
+    def is_irreducible(self, witness = False):
         "determine whether given formula is irreducible"
         n, m, A = self.n, self.m, self.F
         for i in range(m):
@@ -53,7 +86,7 @@ class Hitting:
                         if escapes(t,s):
                             s = joins(t,s)
                             changed = True
-                if s != '*' * n: return s
+                if s != '*' * n: return s if witness else False
         return True
 
     def reducibility_index_serial(self, by_pair = False):
@@ -99,25 +132,33 @@ class Hitting:
                 max_iter = max(iter, max_iter)
         return (max_iter, pairs) if by_pair else max_iter
 
-    def is_homogeneous(self):
-        "determine whether given formula is homogeneous"
-        return all(nstars(s) == nstars(self.F[0]) for s in self.F)
-
     def is_tight(self):
         "determine whether given formula is tight (mentions all variables)"
         return all(any(x[i] != '*' for x in self.F) for i in range(self.n))
 
+    def subcube_to_subspace(self, subcube):
+        "convert a subcube to a subspace"
+        V = VectorSpace(GF(2), self.n + 1)
+        S = [[1] + [int(c == '1') for c in subcube]]
+        for (i,c) in enumerate(subcube):
+            if c == '*':
+                S += [[0] + [0] * i + [1] + [0] * (self.n - i - 1)]
+        return V.subspace(map(V, S))
+
     def to_plus(self):
         "construct an equivalent HittingPlus instance"
-        V = VectorSpace(GF(2), self.n + 1)
-        L = []
+        return HittingPlus([self.subcube_to_subspace(x) for x in self.F])
+
+    def to_plus_compressed(self):
+        "construct an equivalent HittingPlus instance, compressing pairs of subcubes with the same star pattern"
+        trans = {'0': 'b', '1': 'b', '*': '*'}
+        patterns = {}
         for x in self.F:
-            S = [[1] + [int(c == '1') for c in x]]
-            for (i,c) in enumerate(x):
-                if c == '*':
-                    S += [[0] + [0] * i + [1] + [0] * (self.n - i - 1)]
-            L.append(V.subspace(map(V, S)))
-        return HittingPlus(L)
+            pattern = ''.join(trans[c] for c in x)
+            if pattern not in patterns:
+                patterns[pattern] = []
+            patterns[pattern].append(x)
+        return HittingPlus([sum((self.subcube_to_subspace(S) for S in val), 0) for val in patterns.values()])
 
     def split(self, i):
         "recursive construction which splits on the i'th coordinate"
@@ -163,7 +204,7 @@ class Hitting:
         self.proof = [init]
         self.next_q = 0
         self.defs = dict((self.x(i), self.x(i)) for i in range(self.n))
-    
+
     def ExtPC_merge(self, p1, p2):
         "merge positions p1 < p2, use position p1 for results"
         q = self.next_q
@@ -220,8 +261,8 @@ class Hitting:
         return all(self.elaborate(P[0]) == product(Q) \
             for (P,Q) in zip(self.proof[-1], self.proof[0]))
 
-class HittingPlus:
-    def __init__(self, F):
+class HittingPlus(HittingMixin):
+    def __init__(self, F, suppress_check = False):
         "init class with a collection of subspaces of VectorSpace(GF(2),n+1) representing the projective closure"
         self.F = F
         self.V = F[0].ambient_vector_space()
@@ -229,10 +270,14 @@ class HittingPlus:
         self.m = len(F)
         self.O = self.V.subspace([self.V([int(i==j) for j in range(self.n+1)])\
              for i in range(1, self.n+1)]) # O = 0*^n
-        assert(self.is_hitting() == True)
+        if not suppress_check:
+            assert(self.is_hitting() == True)
 
     def __repr__(self):
         return f'HittingPlus({repr(self.F)})'
+
+    def dimensions(self):
+        return [x.dimension() for x in self.F]
 
     def is_hitting(self):
         "determine whether formula is hitting"
@@ -253,7 +298,7 @@ class HittingPlus:
             I = I.intersection(S)
         return I.dimension() == 0
 
-    def is_irreducible(self):
+    def is_irreducible(self, witness = False):
         "determine whether formula is irreducible"
         for i in range(self.m):
             for j in range(i):
@@ -266,7 +311,7 @@ class HittingPlus:
                             not t <= s:
                             s = t + s
                             changed = True
-                if s.dimension() < self.n + 1: return s
+                if s.dimension() < self.n + 1: return s if witness else False
         return True
 
 def standard(n):
@@ -293,9 +338,35 @@ def special6():
     F  = ['0*0*1*', '1**0*1', '00**0*', '10***0']
     F += ['001*1*', '10*1*1', '010*0*', '11*0*0']
     F += ['*111**', '0110**', '1101**']
-    return Hitting(F)
+    return Hitting([reversed(x) for x in F])
 
-def special7():
+def standard_stars(n):
+    "construction with many stars for arbitrary n"
+    assert(n >= 3)
+    if is_odd(n):
+        F = standard(3)
+        while n > 3:
+            F = F.split(0)
+            n -= 2
+        return F
+    else:
+        if n == 4:
+            return standard(4)
+        else:
+            F = standard(6)
+            while n > 6:
+                F = F.split(0)
+                n -= 2
+            return F
+
+def standard_homogeneous(t):
+    "homogeneous construct with t iterations"
+    F = homogeneous4()
+    for _ in range(t):
+        F = F.split_all()
+    return F
+
+def special7_linear():
     "irreducible hitting(+) formula for n = 5 with 7 subspaces"
     H = Hitting(['00***', '1001*', '1*00*', '0100*', '1*1*0',\
          '*1*11', '101*1', '*1101', '011*0', '*1010'])
