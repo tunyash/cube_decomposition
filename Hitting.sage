@@ -1,3 +1,5 @@
+import json
+
 def disjoint(s,t):
     "determine whether two subcubes are disjoint"
     return any(set([c,d]) == set(['0','1']) for (c,d) in zip(s,t))
@@ -22,6 +24,10 @@ def nstars(s):
     return len([c for c in s if c == '*'])
 
 class HittingMixin:
+    def is_tight(self):
+        "determine whether given formula is tight (mentions all variables)"
+        return self.dim() == self.n
+
     def is_homogeneous(self):
         "determine whether formula is homogeneous"
         dims = self.dimensions()
@@ -43,6 +49,7 @@ class HittingMixin:
         res = {}
         res['variables'] = self.n
         res['clauses'] = self.m
+        res['dim'] = self.dim()
         res['dimensions'] = histogram(self.dimensions())
         res['hitting'] = self.is_hitting()
         res['tight'] = self.is_tight()
@@ -132,9 +139,9 @@ class Hitting(HittingMixin):
                 max_iter = max(iter, max_iter)
         return (max_iter, pairs) if by_pair else max_iter
 
-    def is_tight(self):
-        "determine whether given formula is tight (mentions all variables)"
-        return all(any(x[i] != '*' for x in self.F) for i in range(self.n))
+    def dim(self):
+        "return effective dimension"
+        return sum(any(x[i] != '*' for x in self.F) for i in range(self.n))
 
     def subcube_to_subspace(self, subcube):
         "convert a subcube to a subspace"
@@ -283,20 +290,20 @@ class HittingPlus(HittingMixin):
         "determine whether formula is hitting"
         # each subspace intersects 1*^n
         if any(S <= self.O for S in self.F):
-            return False, 0
+            return False
         # the intersection of any two subspaces with 1*^n is empty
         if not all(self.F[i].intersection(self.F[j]) <= self.O \
                 for i in range(1, self.m) for j in range(i)):
-            return False, 1
+            return False
         # the subspaces cover everything
         return sum(2^S.dimension() for S in self.F) == 2^(self.n + 1)
 
-    def is_tight(self):
-        "determine whether formula is tight"
+    def dim(self):
+        "return effective dimension"
         I = self.F[0]
         for S in self.F:
             I = I.intersection(S)
-        return I.dimension() == 0
+        return self. n - I.dimension()
 
     def is_irreducible(self, witness = False):
         "determine whether formula is irreducible"
@@ -404,3 +411,7 @@ def desarguesian_spread(t):
     return HittingPlus([\
         V.subspace(V(base_reduction(z^k) + base_reduction(a * z^k)) for k in range(t))\
         for a in F])
+
+def peitl():
+    "return all irreducible hitting formulas of minimal size for n=4,5,6,7"
+    return json.loads(open('peitl.json', 'r').read())
