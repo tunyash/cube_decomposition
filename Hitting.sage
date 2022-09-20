@@ -156,8 +156,8 @@ class Hitting(HittingMixin):
         "construct an equivalent HittingPlus instance"
         return HittingPlus([self.subcube_to_subspace(x) for x in self.F])
 
-    def to_plus_compressed(self):
-        "construct an equivalent HittingPlus instance, compressing pairs of subcubes with the same star pattern"
+    def by_star_pattern(self):
+        "partition subcubes according to star pattern"
         trans = {'0': 'b', '1': 'b', '*': '*'}
         patterns = {}
         for x in self.F:
@@ -165,6 +165,11 @@ class Hitting(HittingMixin):
             if pattern not in patterns:
                 patterns[pattern] = []
             patterns[pattern].append(x)
+        return patterns
+
+    def to_plus_compressed(self):
+        "construct an equivalent HittingPlus instance, compressing pairs of subcubes with the same star pattern"
+        patterns = self.by_star_pattern()
         return HittingPlus([sum((self.subcube_to_subspace(S) for S in val), 0) for val in patterns.values()])
 
     def split(self, i):
@@ -183,6 +188,13 @@ class Hitting(HittingMixin):
         for i in range(self.n):
             H = H.split(2*i)
         return H
+
+    def merge(self, other):
+        "merge formula with other formula"
+        F0 = ['0' + x for x in self.F if x not in other.F]
+        F1 = ['1' + x for x in other.F if x not in self.F]
+        Fs = ['*' + x for x in self.F if x in other.F]
+        return Hitting(F0 + F1 + Fs)
 
     def x(self, i):
         assert(0 <= i < self.n)
@@ -371,6 +383,16 @@ def standard_homogeneous(t):
     F = homogeneous4()
     for _ in range(t):
         F = F.split_all()
+    return F
+
+def standard_points(n):
+    "construction with many points"
+    N = { '0': '1', '1': '0', '*': '*' }
+    F = standard(3)
+    while n > 3:
+        n -= 1
+        G = Hitting([N[x[0]] + x[1:] for x in F.F])
+        F = F.merge(G)
     return F
 
 def special7_linear():
