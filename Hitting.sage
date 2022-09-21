@@ -395,6 +395,28 @@ def standard_points(n):
         F = F.merge(G)
     return F
 
+def kurz_iterative(H, t):
+    "apply the Kurz iteration t times on a hitting formula containing 01*...*"
+    assert('01' + '*' * (H.n-2) in H.F)
+    for _ in range(t):
+        H0 = Hitting(['*' + x for x in H.F])
+        H1 = Hitting([x + '*' * (H.n-2) for x in ['000', '111', '01*', '*01', '1*0']])
+        H = H0.merge(H1)
+        H = Hitting([x[2:4] + x[:2] + x[4:] for x in H.F])
+    return H
+
+def kurz_linear(n):
+    "return the Kurz construction"
+    assert(n >= 3)
+    if is_odd(n):
+        #H5 = Hitting(['01***', '110**' ,'*000*', '1*1*0', '*0*11', '111*1', '001*0', '*0101', '*0010'])
+        H3 = standard(3)
+        H = kurz_iterative(H3, (n-3)//2)
+    else:
+        H4 = Hitting(['01**', '1*0*', '000*', '1*10', '*011', '0010', '1111'])
+        H = kurz_iterative(H4, (n-4)//2)
+    return H.to_plus_compressed()
+
 def special7_linear():
     "irreducible hitting(+) formula for n = 5 with 7 subspaces"
     H = Hitting(['00***', '1001*', '1*00*', '0100*', '1*1*0',\
