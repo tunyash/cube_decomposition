@@ -226,10 +226,12 @@ class Hitting(HittingMixin):
         Fs = ['*' + x for x in self.F if x in other.F]
         return Hitting(F0 + F1 + Fs)
 
-    def decompose(self, coord):
+    def decompose(self, coord, placeholder = False):
         "decompose along coordinate"
         assert(0 <= coord < self.n)
-        return tuple([Hitting([x[1:] for x in self.F if x[0] != val]) for val in '10'])
+        ins = '*' if placeholder else ''
+        return tuple([Hitting([x[:coord] + ins + x[coord+1:] for x in self.F if x[coord] != val])\
+            for val in '10'])
 
     def irreducible_decompositions(self):
         "return decompositions which are irreducible"
@@ -289,6 +291,24 @@ class Hitting(HittingMixin):
             L = [(i, H) for (i, H) in L if H.is_irreducible()]
         return L
 
+    def greedy_decision_tree(self, path = None, root = None):
+        "construct a greedy decision tree for determining which subcube contains input"
+        if path is None:
+            path = '*' * self.n
+            root = self
+        if self.dim() == 0:
+            subcubes = [x for x in root.F if all(c == d or d == '*' for (c,d) in zip(path, x))]
+            assert(len(subcubes) == 1)
+            return {'tree': subcubes[0], 'leaves': 1, 'depth': 0}
+        stats = [(i,len([x for x in self.F if x[i] != '*'])) for i in range(self.n)]
+        i = max(stats, key=lambda x: x[1])[0]
+        H0, H1 = self.decompose(i, True)
+        T0 = H0.greedy_decision_tree(path[:i] + '0' + path[i+1:], root)
+        T1 = H1.greedy_decision_tree(path[:i] + '1' + path[i+1:], root)
+        return {'tree': (i, T0['tree'], T1['tree']),\
+            'leaves': T0['leaves'] + T1['leaves'],\
+            'depth': max(T0['depth'], T1['depth']) + 1}
+
     def x(self, i):
         assert(0 <= i < self.n)
         return self.vars[i]
@@ -297,6 +317,17 @@ class Hitting(HittingMixin):
         assert(0 <= i < self.n)
         assert(0 <= j <= self.m)
         return self.vars[self.n + (self.m+1) * i + j]
+
+    ### ExtPC proof
+    ### run with ExtPC_check() or ExtPC_check(strategy = 'parallel') [different merging strategies]
+    ### the proof runs in n-1 steps, in each of which two coordinates are merged
+    ### proof[i] is the contents of the i'th step
+    ### each item in proof[i] is a representation of one the clauses (first m items) or of -1 (last item)
+    ### the items are stored as lists of affine univariate polynomials, whose product is the item
+    ### the original variables are x0, ..., x(n-1)
+    ### in the i'th step, variables yi_0, ..., yi_(r-1) are used (for some r)
+    ### the definitions of the extension variables are in defs
+    ### q_list[i] contains the original coordinates represented by yi_j
 
     def ExtPC_init(self, fld = GF(2)):
         "initialize ExtPC proof over given field"
@@ -312,15 +343,15 @@ class Hitting(HittingMixin):
         self.R = fld[','.join(xs + ys)]
         self.vars = self.R.gens()
         init = [[to_poly(i, C[i]) for i in range(self.n)] for C in self.F]
-        init += [[-1] + [1] * (self.n-1)]
+        init += [[fld(-1)] + [fld(1)] * (self.n-1)]
         self.proof = [init]
-        self.next_q = 0
         self.defs = dict((self.x(i), self.x(i)) for i in range(self.n))
+        self.coords = [[i] for i in range(self.n)]
+        self.q_list = []
 
     def ExtPC_merge(self, p1, p2):
         "merge positions p1 < p2, use position p1 for results"
-        q = self.next_q
-        self.next_q += 1
+        q = len(self.q_list)
         assert(0 <= p1 < p2 < len(self.proof[-1]))
         assert(0 <= q < self.n)
         last = self.proof[-1]
@@ -333,6 +364,9 @@ class Hitting(HittingMixin):
         basis = rs.basis_matrix() * mon
         for (j,b) in enumerate(basis):
             self.defs[self.y(q,j)] = b[0]
+        self.coords = self.coords[:p1] + [self.coords[p1] + self.coords[p2]] +\
+                self.coords[p1+1:p2] + self.coords[p2+1:]
+        self.q_list.append(self.coords[p1])
 
     def ExtPC_done(self):
         "check that we have reached the final step"
