@@ -23,10 +23,35 @@ def nstars(s):
     "compute the dimension of given subcube"
     return len([c for c in s if c == '*'])
 
+def nfs_flip(x, y):
+    "return the nfs flip of x and y, or None if they do not form an nfs pair"
+    assert(len(x) == len(y))
+    assert(all(c in '01*' for c in x+y))
+    n = len(x)
+    i_s = [i for i in range(n) if x[i] != y[i] and x[i] in '01' and y[i] in '01']
+    j_s = [j for j in range(n) if (x[j] == '*' and y[j] in '01') or (x[j] in '01' and y[j] == '*')]
+    if len(i_s) != 1 or len(j_s) != 1:
+        return None
+    i = i_s[0]
+    j = j_s[0]
+    flip = { '0': '1', '1': '0' }
+    if y[j] == '*':
+        return x[:i] + '*' + x[i+1:], y[:j] + flip[x[j]] + y[j+1:]
+    else:
+        return x[:j] + flip[y[j]] + x[j+1:], y[:i] + '*' + y[i+1:]
+
+def is_nfs_pair(x, y):
+    "determine whether x, y form an nfs_pair"
+    return nfs_flip(x, y) is not None
+
 class HittingMixin:
     def is_tight(self):
         "determine whether given formula is tight (mentions all variables)"
         return self.dim() == self.n
+
+    def is_tight_irreducible(self):
+        "determine whether given formula is both tight and irreducible"
+        return self.is_tight() and self.is_irreducible()
 
     def is_homogeneous(self):
         "determine whether formula is homogeneous"
@@ -139,6 +164,10 @@ class Hitting(HittingMixin):
                 max_iter = max(iter, max_iter)
         return (max_iter, pairs) if by_pair else max_iter
 
+    def is_regular(self):
+        "determine whether formula is regular"
+        return all(all(len([x for x in self.F if x[i] == b]) >= 2 for i in range(self.n)) for b in '01')
+
     def dim(self):
         "return effective dimension"
         return sum(any(x[i] != '*' for x in self.F) for i in range(self.n))
@@ -191,10 +220,74 @@ class Hitting(HittingMixin):
 
     def merge(self, other):
         "merge formula with other formula"
+        assert(self.n == other.n)
         F0 = ['0' + x for x in self.F if x not in other.F]
         F1 = ['1' + x for x in other.F if x not in self.F]
         Fs = ['*' + x for x in self.F if x in other.F]
         return Hitting(F0 + F1 + Fs)
+
+    def decompose(self, coord):
+        "decompose along coordinate"
+        assert(0 <= coord < self.n)
+        return tuple([Hitting([x[1:] for x in self.F if x[0] != val]) for val in '10'])
+
+    def irreducible_decompositions(self):
+        "return decompositions which are irreducible"
+        L = [(i, self.decompose(i)) for i in range(self.n)]
+        return [(i,Hs) for (i,Hs) in L if Hs[0].is_irreducible() and Hs[1].is_irreducible()]
+
+    def nfs_pairs(self):
+        "return all pairs of indices of nfs pairs"
+        return [(i,j) for j in range(self.m) for i in range(j) if is_nfs_pair(self.F[i], self.F[j])]
+
+    def nfs_flip(self, i, j):
+        "flip an nfs pair"
+        if i > j:
+            i, j = j, i
+        assert(0 <= i < j < self.m)
+        assert(is_nfs_pair(self.F[i], self.F[j]))
+        Gi, Gj = nfs_flip(self.F[i], self.F[j])
+        return Hitting(self.F[:i] + [Gi] + self.F[i+1:j] + [Gj] + self.F[j+1:])
+
+    def extend_by_nfs_flip(self, i, j):
+        "extend current formula by flipping the pair (i,j)"
+        if i > j:
+            i, j = j, i
+        assert(0 <= i < j < self.m)
+        assert(is_nfs_pair(self.F[i], self.F[j]))
+        x0, x1 = self.F[i], self.F[j]
+        y0, y1 = nfs_flip(x0, x1)
+        G = [x + '*' for (k,x) in enumerate(self.F) if k not in [i,j]]
+        G += [x0 + '0', x1 + '0', y0 + '1', y1 + '1']
+        return Hitting(G)
+
+    def undo_nfs_flip(self, coord, bit = '0'):
+        "attempt to undo nfs flip at coord (return None if unsuccessful)"
+        assert(0 <= coord < self.n)
+        i_s = [i for (i,x) in enumerate(self.F) if x[coord] == '0']
+        j_s = [j for (j,x) in enumerate(self.F) if x[coord] == '1']
+        if len(i_s) != 2 or len(j_s) != 2:
+            return None
+        x, y = self.F[i_s[0]], self.F[i_s[1]]
+        z, w = self.F[j_s[0]], self.F[j_s[1]]
+        x = x[:coord] + x[coord+1:]
+        y = y[:coord] + y[coord+1:]
+        z = z[:coord] + z[coord+1:]
+        w = w[:coord] + w[coord+1:]
+        if not is_nfs_pair(x, y):
+            return None
+        if nfs_flip(x, y) not in [(z, w), (w, z)]:
+            return None
+        k_s = j_s if bit == '0' else i_s
+        return Hitting([x[:coord] + x[coord+1:] for (i,x) in enumerate(self.F) if i not in k_s])
+    
+    def undo_nfs_flip_all(self, bit = '0', only_irreducible = False):
+        "return all ways (if any) to undo nfs flips"
+        L = [(i, self.undo_nfs_flip(i, bit)) for i in range(self.n)]
+        L = [(i, H) for (i, H) in L if H is not None]
+        if only_irreducible:
+            L = [(i, H) for (i, H) in L if H.is_irreducible()]
+        return L
 
     def x(self, i):
         assert(0 <= i < self.n)
@@ -444,6 +537,37 @@ def cubic_linear(n):
     i = [j for (j,x) in enumerate(F.F) if nstars(x) == 0][1]
     H = F.to_plus()
     return HittingPlus([H.F[0] + H.F[i]] + H.F[1:i] + H.F[i+1:])
+
+def nfs_iteration(H, iter, i = None, j = None):
+    "iterative construction using nfs pairs (default for initial i,j is last two subcubes)"
+    if i is None or j is None:
+        i, j = H.m - 2, H.m - 1
+    for _ in range(iter):
+        H = H.extend_by_nfs_flip(i, j)
+        i, j = H.m - 2, H.m - 1
+    return H
+
+def standard_nfs_iteration(n):
+    "irreducible hitting formula formed by nfs iteration"
+    assert(n >= 3)
+    return nfs_iteration(standard(3), n - 3)
+
+def iterative_construction(G, s, iter, F0 = None):
+    "iterative construction with s stars (example: G = standard(3), s = 0 or s = 1)"
+    if F0 is None:
+        if s > 0:
+            F0 = G
+        else:
+            pairs = G.nfs_pairs()
+            assert(len(pairs) > 0)
+            F0 = G.extend_by_nfs_flip(*pairs[-1])
+    assert(s + F0.n >= G.n)
+    for _ in range(iter):
+        F0 = Hitting(['*' * s + x for x in F0.F])
+        G0 = Hitting([x + '*' * (F0.n - G.n) for x in G.F])
+        F0 = F0.merge(G0)
+        F0 = Hitting([x[s+1:] + x[:s+1] for x in F0.F])
+    return F0
 
 def desarguesian_spread(t):
     "irreducible hitting(+) formula based on the standard Desarguesian spread"
