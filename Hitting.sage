@@ -357,7 +357,8 @@ def special6():
     F  = ['0*0*1*', '1**0*1', '00**0*', '10***0']
     F += ['001*1*', '10*1*1', '010*0*', '11*0*0']
     F += ['*111**', '0110**', '1101**']
-    return Hitting([reversed(x) for x in F])
+    return Hitting(F)
+    #return Hitting([x[::-1] for x in F])
 
 def standard_stars(n):
     "construction with many stars for arbitrary n"
@@ -372,7 +373,7 @@ def standard_stars(n):
         if n == 4:
             return standard(4)
         else:
-            F = standard(6)
+            F = special6()
             while n > 6:
                 F = F.split(0)
                 n -= 2
@@ -397,15 +398,15 @@ def standard_points(n):
 
 def kurz_iterative(H, t):
     "apply the Kurz iteration t times on a hitting formula containing 01*...*"
-    assert('01' + '*' * (H.n-2) in H.F)
     for _ in range(t):
+        assert('01' + '*' * (H.n-2) in H.F)
         H0 = Hitting(['*' + x for x in H.F])
         H1 = Hitting([x + '*' * (H.n-2) for x in ['000', '111', '01*', '*01', '1*0']])
         H = H0.merge(H1)
         H = Hitting([x[2:4] + x[:2] + x[4:] for x in H.F])
     return H
 
-def kurz_linear(n):
+def kurz_linear(n, subcubes = False):
     "return the Kurz construction"
     assert(n >= 3)
     if is_odd(n):
@@ -415,7 +416,7 @@ def kurz_linear(n):
     else:
         H4 = Hitting(['01**', '1*0*', '000*', '1*10', '*011', '0010', '1111'])
         H = kurz_iterative(H4, (n-4)//2)
-    return H.to_plus_compressed()
+    return H if subcubes else H.to_plus_compressed()
 
 def special7_linear():
     "irreducible hitting(+) formula for n = 5 with 7 subspaces"
