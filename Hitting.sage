@@ -603,6 +603,37 @@ def iterative_construction(G, s, iter, F0 = None):
         F0 = Hitting([x[s+1:] + x[:s+1] for x in F0.F])
     return F0
 
+def standard_points_exact(n, pts):
+    "generate tight irreducible formula with given even number of points between 2 and 2^{n-2}"
+    assert(is_even(pts))
+    assert(2 <= pts <= 2^(n-2))
+    flip = { '0': '1', '1': '0', '*': '*' }
+    if pts == 2:
+        H = standard(n)
+        if is_odd(n):
+            return H
+        return Hitting([flip[x[0]] + x[1:] for x in H.F])
+    p1 = (pts // 4) * 2
+    p0 = pts - p1
+    H0 = standard_points_exact(n-1, p0)
+    H1 = standard_points_exact(n-1, p1)
+    H1f = Hitting([flip[x[0]] + x[1:] for x in H1.F])
+    return Hitting([x[1:] + x[0] for x in H0.merge(H1f).F])
+
+def homogeneous_reducible(n, k):
+    "possibly reduce tight homogeneous hitting formula on n points with constant codimension k"
+    assert(1 <= k <= n < 2^k)
+    if k == 1:
+        return Hitting(['0', '1'])
+    if n <= 2^(k-1):
+        H = homogeneous_reducible(n-1, k-1)
+        return Hitting([b + x for b in '01' for x in H.F])
+    n0 = (n-1)//2
+    n1 = (n-1)-n0
+    H0 = homogeneous_reducible(n0, k-1)
+    H1 = homogeneous_reducible(n1, k-1)
+    return Hitting(['0' + x + '*' * n1 for x in H0.F] + ['1' + '*' * n0 + x for x in H1.F])
+
 def desarguesian_spread(t):
     "irreducible hitting(+) formula based on the standard Desarguesian spread"
     V = VectorSpace(GF(2), 2*t)
