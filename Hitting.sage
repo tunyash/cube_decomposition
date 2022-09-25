@@ -62,6 +62,10 @@ class HittingMixin:
         "return number of clauses"
         return len(self.F)
 
+    def __iter__(self):
+        "iterate over clauses"
+        return self.F.__iter__()
+
     def properties(self):
         "return several properties of self"
         def histogram(data):
@@ -94,6 +98,9 @@ class Hitting(HittingMixin):
 
     def __repr__(self):
         return f'Hitting({repr(self.F)})'
+
+    def __str__(self):
+        return '\n'.join(self.F)
 
     def dimensions(self):
         return [nstars(x) for x in self.F]
@@ -487,6 +494,12 @@ def special6():
     return Hitting(F)
     #return Hitting([x[::-1] for x in F])
 
+def special6a():
+    "variant of special6"
+    F  = ['000***', '10*0**', '*1**00', '**111*', '*10**1']
+    F += ['*0110*', '*1101*', '*11*01', '*10*10', '0010**', '1001**']
+    return Hitting(F)
+
 def standard_stars(n):
     "construction with many stars for arbitrary n"
     assert(n >= 3)
@@ -590,18 +603,33 @@ def iterative_construction(G, s, iter, F0 = None):
     "iterative construction with s stars (example: G = standard(3), s = 0 or s = 1)"
     if F0 is None:
         if s > 0:
-            F0 = G
+            F0 = Hitting([x[s:] + x[:s] for x in G])
         else:
             pairs = G.nfs_pairs()
             assert(len(pairs) > 0)
             F0 = G.extend_by_nfs_flip(*pairs[-1])
     assert(s + F0.n >= G.n)
     for _ in range(iter):
-        F0 = Hitting(['*' * s + x for x in F0.F])
-        G0 = Hitting([x + '*' * (F0.n - G.n) for x in G.F])
+        F0 = Hitting(['*' * s + x for x in F0])
+        G0 = Hitting([x + '*' * (F0.n - G.n) for x in G])
         F0 = F0.merge(G0)
-        F0 = Hitting([x[s+1:] + x[:s+1] for x in F0.F])
+        F0 = Hitting([x[s+1:] + x[:s+1] for x in F0])
     return F0
+
+def best_linear(n):
+    "current best construction of hitting(+) formulas for n ≥ 3 (standard(n) is best for hitting)"
+    assert(n >= 3)
+    if is_odd(n):
+        return iterative_construction(standard(3), 1, (n-3)//2).to_plus_compressed()
+    elif n == 4:
+        return standard(4).to_plus_compressed()
+    else:
+        return iterative_construction(special6a(), 1, (n-6)//2).to_plus_compressed()
+
+def best_linear_params(max_n):
+    "return parameters of best_linear construction"
+    return dict([(F.n, len(F)) for F in [best_linear(n) for n in range(3, max_n+1)]\
+        if F.is_tight_irreducible()])
 
 def standard_points_exact(n, pts):
     "generate tight irreducible formula with given even number of points between 2 and 2^{n-2}"
