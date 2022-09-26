@@ -449,48 +449,32 @@ class HittingPlus(HittingMixin):
         assert(basis[0][0] == 1)
         shift = basis[0][1:]
         basis = [y[1:] for y in basis[1:]]
-        res = ['01'[e] for e in shift]
-        alpha = 'abcdefghijklmnopqrstuvwxyz'
-        Alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        for y in basis:
-            indices = [i for i in range(self.n) if y[i] == 1]
-            if len(indices) == 1:
-                res[indices[0]] = '*'
-            else:
-                a = alpha[0]
-                A = Alpha[0]
-                alpha = alpha[1:]
-                Alpha = Alpha[1:]
-                for i in indices:
-                    res[i] = a if shift[i] == 0 else A
-        return ''.join(res)
+        shift_str = ''.join('01'[c] for c in shift)
+        basis_str = [''.join('01'[c] for c in b) for b in basis]
+        return shift_str + ' + <' + ', '.join(basis_str) + '>'
 
     def decode(self, x):
-        "decode alphanumeric subspace"
-        assert(all(c in '01*' or c.isalpha() for c in x))
-        n = len(x)
-        V = VectorSpace(GF(2), n + 1)
-        shift = [0 for _ in range(n)]
-        basis = []
-        encountered = {}
-        for (i,c) in enumerate(x):
-            if c == '0':
-                shift[i] = 0
-            elif c == '1':
-                shift[i] = 1
-            elif c == '*':
-                basis.append([0 for _ in range(i)] + [1] + [0 for _ in range(n-i-1)])
-            else:
-                if c.lower() not in encountered:
-                    encountered[c.lower()] = len(basis)
-                    basis.append([0 for _ in range(n)])
-                pos = encountered[c.lower()]
-                basis[pos][i] = 1
-                if c.islower():
-                    shift[i] = 0
-                else:
-                    shift[i] = 1
-        return V.subspace([V([1] + shift)] + [V([0] + vec) for vec in basis])
+        "decode textual subspace"
+        parts = x.split('+')
+        assert(len(parts) == 2)
+        shift = parts[0].strip()
+        basis = parts[1].strip()
+
+        assert(all(c in '01' for c in shift))
+        if 'n' not in dir(self):
+            self.n = len(shift)
+        assert(len(shift) == self.n)
+        shift = [int(c) for c in shift]
+
+        assert(basis[0] == '<')
+        assert(basis[-1] == '>')
+        basis = [b.strip() for b in basis[1:-1].split(',')]
+        assert(all(len(b) == self.n for b in basis))
+        assert(all(all(c in '01' for c in b) for b in basis))
+        basis = [[int(c) for c in b] for b in basis]
+
+        V = VectorSpace(GF(2), self.n + 1)
+        return V.subspace([V([1] + shift)] + [V([0] + b) for b in basis])
 
     def dimensions(self):
         return [x.dimension() for x in self.F]
