@@ -675,6 +675,22 @@ def iterative_construction(G, s, iter, F0 = None):
         F0 = Hitting([x[s+1:] + x[:s+1] for x in F0])
     return F0
 
+def iteration_codim2(F0, iter):
+    "iteration on formula containing 01*^{n-2}, such as standard(3); go backward if iter < 0"
+    if iter >= 0:
+        assert('01' + '*' * (F0.n-2) in F0)
+        for _ in range(iter):
+            S  = ['1' + x for x in F0 if x != '01' + '*' * (F0.n-2)]
+            S += ['01' + '*' * (F0.n-1), '*01' + '*' * (F0.n-2), '000' + '*' * (F0.n-2)]
+            F0 = Hitting(S)
+        return F0
+    else:
+        for _ in range(-iter):
+            T = ['01' + '*' * (F0.n-2), '*01' + '*' * (F0.n-3), '000' + '*' * (F0.n-3)]
+            assert(all(x in F0 for x in T))
+            F0 = Hitting([x[1:] for x in F0 if x[0] == '1'] + [T[0][:-1]])
+        return F0
+
 def best_linear(n):
     "current best construction of hitting(+) formulas for n ≥ 3 (standard(n) is best for hitting)"
     assert(n >= 3)
