@@ -190,6 +190,10 @@ class Hitting(HittingMixin):
         q = {'0': q0, '1': q1, '*': 1}
         return sum(product(q[c] for c in x) for x in self.F)
 
+    def by_weight(self):
+        "arrange according to weight"
+        return Hitting(sorted(self.F, key = lambda x: len([c for c in x if c == '1'])))
+
     def rotate(self, rot):
         "rotate left by rot"
         if rot == 0:
@@ -555,20 +559,25 @@ def standard(n):
 def standard_few1(n):
     "construction with few 1's for n ≥ 3"
     assert(n >= 3)
-    if n == 3:
-        return Hitting(['01*', '110', '1*1', '*00', '001'])
     return Hitting(\
-        ['0' * i + '1' + '*' * (n - 1 - i) for i in range(1, n)] +\
-        ['100' + '*' * i + '1' + '0' * (n - i - 4) for i in range(n - 4)] +\
-        ['110' + '*' * (n - 4) + '0', '1*1' + '*' * (n - 3)] +\
-        ['1*0' + '*' * (n - 4) + '1', '*' + '0' * (n - 1)])
+        ['0' * (n-1) + '*'] +\
+        ['0' + '*' * i + '1' + '0' * (n-2-i) for i in range(n-2)] +\
+        ['1' + '*' * (n-2) + '0'] +\
+        ['*' * i + '1' + '0' * (n-2-i) + '1' for i in range(n-1)])
+    # if n == 3:
+    #     return Hitting(['01*', '110', '1*1', '*00', '001'])
+    # return Hitting(\
+    #     ['0' * i + '1' + '*' * (n - 1 - i) for i in range(1, n)] +\
+    #     ['100' + '*' * i + '1' + '0' * (n - i - 4) for i in range(n - 4)] +\
+    #     ['110' + '*' * (n - 4) + '0', '1*1' + '*' * (n - 3)] +\
+    #     ['1*0' + '*' * (n - 4) + '1', '*' + '0' * (n - 1)])
 
 def standard_few1_iter(n):
     "variant of standard_few1"
     assert(n >= 3)
     G = Hitting(['1*', '00', '01'])
     F0 = Hitting(['01*', '110', '1*1', '*00', '001'])
-    return iteration_merge(F0, G, 1, 1, n - 3)
+    return iteration_merge(F0, G, 1, 1, n - 3, False).rotate(1)
 
 def standard_linear(n):
     "standard construction for n ≥ 3, joining the two points"
@@ -725,7 +734,7 @@ def iteration_codim2(F0, iter):
             F0 = Hitting([x[1:] for x in F0 if x[0] == '1'] + [T[0][:-1]])
         return F0
 
-def iteration_merge(F, G, b, rot, iter):
+def iteration_merge(F, G, b, rot, iter, final_rotation = True):
     "merge gadget G into F for iter many iterations; put G in position b, and rotate left each time by rot"
     for _ in range(iter):
         G0 = Hitting([x + '*' * (F.n - G.n) for x in G])
@@ -734,7 +743,10 @@ def iteration_merge(F, G, b, rot, iter):
         else:
             F = F.merge(G0)
         F = F.rotate(rot)
-    return F.rotate(-rot)
+    if final_rotation:
+        return F.rotate(-rot)
+    else:
+        return F
 
 def best_linear(n):
     "current best construction of hitting(+) formulas for n ≥ 3 (standard(n) is best for hitting)"
