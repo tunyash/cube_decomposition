@@ -185,6 +185,19 @@ class Hitting(HittingMixin):
         "return effective dimension"
         return sum(any(x[i] != '*' for x in self.F) for i in range(self.n))
 
+    def weight(self, q0, q1):
+        "return number of clauses when substituting q0 for 0 and q1 for 1"
+        q = {'0': q0, '1': q1, '*': 1}
+        return sum(product(q[c] for c in x) for x in self.F)
+
+    def rotate(self, rot):
+        "rotate left by rot"
+        if rot == 0:
+            return Hitting(self.F)
+        if rot < 0:
+            rot = self.n - (-rot)
+        return Hitting([x[rot:] + x[:rot] for x in self.F])
+
     def subcube_to_subspace(self, subcube):
         "convert a subcube to a subspace"
         V = VectorSpace(GF(2), self.n + 1)
@@ -246,10 +259,13 @@ class Hitting(HittingMixin):
         return tuple([Hitting([x[:coord] + ins + x[coord+1:] for x in self.F if x[coord] != val])\
             for val in '10'])
 
-    def irreducible_decompositions(self):
+    def irreducible_decompositions(self, one_sided = False):
         "return decompositions which are irreducible"
         L = [(i, self.decompose(i)) for i in range(self.n)]
-        return [(i,Hs) for (i,Hs) in L if Hs[0].is_irreducible() and Hs[1].is_irreducible()]
+        if one_sided:
+            return [(i,Hs) for (i,Hs) in L if Hs[0].is_irreducible() or Hs[1].is_irreducible()]
+        else:        
+            return [(i,Hs) for (i,Hs) in L if Hs[0].is_irreducible() and Hs[1].is_irreducible()]
 
     def nfs_pairs(self):
         "return all pairs of indices of nfs pairs"
@@ -527,7 +543,7 @@ class HittingPlus(HittingMixin):
         return self.F + [self.uncovered_subspace()]
 
 def standard(n):
-    "standard construction for n >= 3"
+    "standard construction for n ≥ 3"
     assert(n >= 3)
     F  = ['1'*i + '000' + '*' * (n-3-i) for i in range(n-2)]
     F += ['01' + '*' * (n-2)]
@@ -536,8 +552,26 @@ def standard(n):
     F += ['1' * n]
     return Hitting(F)
 
+def standard_few1(n):
+    "construction with few 1's for n ≥ 3"
+    assert(n >= 3)
+    if n == 3:
+        return Hitting(['01*', '110', '1*1', '*00', '001'])
+    return Hitting(\
+        ['0' * i + '1' + '*' * (n - 1 - i) for i in range(1, n)] +\
+        ['100' + '*' * i + '1' + '0' * (n - i - 4) for i in range(n - 4)] +\
+        ['110' + '*' * (n - 4) + '0', '1*1' + '*' * (n - 3)] +\
+        ['1*0' + '*' * (n - 4) + '1', '*' + '0' * (n - 1)])
+
+def standard_few1_iter(n):
+    "variant of standard_few1"
+    assert(n >= 3)
+    G = Hitting(['1*', '00', '01'])
+    F0 = Hitting(['01*', '110', '1*1', '*00', '001'])
+    return iteration_merge(F0, G, 1, 1, n - 3)
+
 def standard_linear(n):
-    "standard construction for n >= 3, joining the two points"
+    "standard construction for n ≥ 3, joining the two points"
     H = standard(n).to_plus()
     return HittingPlus([H.F[0] + H.F[-1]] + H.F[1:-1])
 
@@ -690,6 +724,17 @@ def iteration_codim2(F0, iter):
             assert(all(x in F0 for x in T))
             F0 = Hitting([x[1:] for x in F0 if x[0] == '1'] + [T[0][:-1]])
         return F0
+
+def iteration_merge(F, G, b, rot, iter):
+    "merge gadget G into F for iter many iterations; put G in position b, and rotate left each time by rot"
+    for _ in range(iter):
+        G0 = Hitting([x + '*' * (F.n - G.n) for x in G])
+        if b == 0:
+            F = G0.merge(F)
+        else:
+            F = F.merge(G0)
+        F = F.rotate(rot)
+    return F.rotate(-rot)
 
 def best_linear(n):
     "current best construction of hitting(+) formulas for n ≥ 3 (standard(n) is best for hitting)"
