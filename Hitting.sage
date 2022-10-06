@@ -1,4 +1,5 @@
-import json
+from difflib import restore
+import itertools, json
 
 def disjoint(s,t):
     "determine whether two subcubes are disjoint"
@@ -23,6 +24,14 @@ def nstars(s):
     "compute the dimension of given subcube"
     return len([c for c in s if c == '*'])
 
+def nzeroes(s):
+    "compute the coweight of given subcube"
+    return len([c for c in s if c == '0'])
+
+def nones(s):
+    "compute the weight of given subcube"
+    return len([c for c in s if c == '1'])
+
 def nfs_flip(x, y):
     "return the nfs flip of x and y, or None if they do not form an nfs pair"
     assert(len(x) == len(y))
@@ -43,6 +52,11 @@ def nfs_flip(x, y):
 def is_nfs_pair(x, y):
     "determine whether x, y form an nfs_pair"
     return nfs_flip(x, y) is not None
+
+def binary_strings(n):
+    "return all binary strings of length n"
+    for s in itertools.product('01', repeat = n):
+        yield ''.join(s)
 
 class HittingMixin:
     def is_tight(self):
@@ -69,8 +83,13 @@ class HittingMixin:
     # __setitem__ not implemented
     def __getitem__(self, item):
         "get i'th clause"
-        assert(0 <= item < self.m)
+        #assert(0 <= item < self.m)
         return self.F[item]
+
+    def __eq__(self, other):
+        "compare sorted list of subcubes/subspaces"
+        assert('F' in dir(other))
+        return list(sorted(self.F)) == list(sorted(other.F))
 
     def properties(self):
         "return several properties of self"
@@ -190,9 +209,20 @@ class Hitting(HittingMixin):
         q = {'0': q0, '1': q1, '*': 1}
         return sum(product(q[c] for c in x) for x in self.F)
 
+    def max_weight(self):
+        "return maximal weight of a subcube"
+        return max(nones(x) for x in self)
+
+    def weight_vector(self):
+        "return weight vector (truncated)"
+        w = [0] * (self.max_weight() + 1)
+        for x in self:
+            w[nones(x)] += 1
+        return w
+
     def by_weight(self):
         "arrange according to weight"
-        return Hitting(sorted(self.F, key = lambda x: len([c for c in x if c == '1'])))
+        return Hitting(sorted(self.F, key = lambda x: (self.n+1) * nones(x) + nstars(x)))
 
     def rotate(self, rot):
         "rotate left by rot"
@@ -201,6 +231,40 @@ class Hitting(HittingMixin):
         if rot < 0:
             rot = self.n - (-rot)
         return Hitting([x[rot:] + x[:rot] for x in self.F])
+
+    def permute(self, p):
+        "permute using given 1-based permutation: x → x(p(1)), ..., x(p(n))"
+        return Hitting([''.join(x[i-1] for i in p) for x in self])
+
+    def xor(self, mask):
+        "xor by mask (string in {0,1}^n)"
+        assert(len(mask) == self.n)
+        assert(all(c in '01' for c in mask))
+        D = {'0': {'*': '*', '0': '0', '1': '1'}, '1': {'*': '*', '0': '1', '1': '0'}}
+        return Hitting([''.join(D[m][c] for (m,c) in zip(mask,x)) for x in self])
+
+    def is_permutation(self, other, ret = False):
+        "determine whether other is permutation of self; optionally return permutations"
+        perms = [p for p in Permutations(self.n) if self.permute(p) == other]
+        if ret:
+            return perms
+        return len(perms) > 0
+
+    def permutation_symmetries(self):
+        "return permutation symmetries"
+        return self.is_permutation(self, True)
+
+    def is_equivalent(self, other, ret = False):
+        "determine whether other is equivalent to self; optionally return group elements"
+        elems = [(m,p) for m in binary_strings(self.n) for p in Permutations(self.n) if \
+            self.xor(m).permute(p) == other]
+        if ret:
+            return elems
+        return len(elems) > 0
+
+    def automorphisms(self):
+        "return automorphisms"
+        return self.is_equivalent(self, True)
 
     def subcube_to_subspace(self, subcube):
         "convert a subcube to a subspace"
@@ -277,12 +341,28 @@ class Hitting(HittingMixin):
 
     def nfs_flip(self, i, j):
         "flip an nfs pair"
-        if i > j:
-            i, j = j, i
-        assert(0 <= i < j < self.m)
-        assert(is_nfs_pair(self.F[i], self.F[j]))
-        Gi, Gj = nfs_flip(self.F[i], self.F[j])
-        return Hitting(self.F[:i] + [Gi] + self.F[i+1:j] + [Gj] + self.F[j+1:])
+        return self.nfs_flip([(i, j)])
+
+    def nfs_flips(self, pairs):
+        "flip several nfs pairs at once"
+        G = self.F[:]
+        for (i, j) in pairs:
+            if i > j:
+                i, j = j, i
+            assert(0 <= i < j < self.m)
+            assert(is_nfs_pair(self.F[i], self.F[j]))
+            G[i], G[j] = nfs_flip(self.F[i], self.F[j])
+        return Hitting(G)
+
+    def nfs_equivalent(self, other, wt = 1, ret = False):
+        "check whether self is nfs-equivalent to toher using wt nfs-flips; optionally return proof"
+        ops = list(itertools.combinations(self.nfs_pairs(), wt))
+        ops = [L for L in ops if all(x == y or set(x).isdisjoint(set(y)) for x in L for y in L)]
+        rets = [(L, self.nfs_flips(L).is_permutation(other, ret=True)) for L in ops]
+        rets = [(L, P) for (L, P) in rets if len(P) > 0]
+        if ret:
+            return rets
+        return len(rets) > 0
 
     def extend_by_nfs_flip(self, i, j):
         "extend current formula by flipping the pair (i,j)"
