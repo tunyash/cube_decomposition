@@ -109,6 +109,8 @@ class HittingMixin:
         res['tight'] = self.is_tight()
         res['irreducible'] = self.is_irreducible()
         res['homogeneous'] = self.is_homogeneous()
+        if 'weight_vector' in dir(self):
+            res['weights'] = self.weight_vector()
         return res
 
 class Hitting(HittingMixin):
@@ -652,11 +654,34 @@ def standard_few1(n):
     #     ['110' + '*' * (n - 4) + '0', '1*1' + '*' * (n - 3)] +\
     #     ['1*0' + '*' * (n - 4) + '1', '*' + '0' * (n - 1)])
 
+def standard_few1b(n, alt = False):
+    "another construction with few 1's for n ≥ 3 (in two forms)"
+    if alt:
+        return standard_few1b(n).rotate(1).permute(list(range(1, n-1)) + [n, n-1])
+    assert(n >= 3)
+    return Hitting(\
+        ['0' * (n-1) + '*'] +\
+        ['*' * i + '1' + '0' * (n-1-i) for i in range(n-1)] +\
+        ['0' + '*' * i + '1' + '0' * (n-3-i) + '1' for i in range(n-2)] +\
+        ['1' + '*' * (n-2) + '1']
+        )
+
+def standard_few1c(n):
+    "yet another construction with few 1's for n ≥ 3"
+    return standard_few1b(n, True).nfs_flips([(0, 1), (2, n)])
+
 def standard_few1_iter(n):
     "variant of standard_few1"
     assert(n >= 3)
     G = Hitting(['1*', '00', '01'])
     F0 = Hitting(['01*', '110', '1*1', '*00', '001'])
+    return iteration_merge(F0, G, 1, 1, n - 3, False).rotate(1)
+
+def standard_few1b_iter(n):
+    "variant of standard_few1b"
+    assert(n >= 3)
+    G = Hitting(['0*', '10', '11'])
+    F0 = Hitting(['11*', '101', '0*1', '*00', '010'])
     return iteration_merge(F0, G, 1, 1, n - 3, False).rotate(1)
 
 def standard_linear(n):
