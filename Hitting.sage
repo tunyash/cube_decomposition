@@ -684,6 +684,11 @@ def homogeneous4():
     "homogeneous construction for n = 4"
     return Hitting(['001*', '0*01', '01*0', '110*', '1*10', '10*1', '*000', '*111'])
 
+def homogeneous6():
+    "homogeneous construction for n = 6"
+    return Hitting(['0000**', '01**00', '001**1', '01*01*', '0*01*1', '0**110', '10*11*', '10**01',\
+                    '1101**', '111**0', '1*00*0', '1**011', '*010*0', '*0*100', '*111*1', '*1*001'])
+
 def special6():
     "construction with many stars for n = 6"
     F  = ['0*0*1*', '1**0*1', '00**0*', '10***0']
