@@ -238,6 +238,10 @@ class Hitting(HittingMixin):
         "permute using given 1-based permutation: x → x(p(1)), ..., x(p(n))"
         return Hitting([''.join(x[i-1] for i in p) for x in self])
 
+    def reverse(self):
+        "reverse all subcubes"
+        return self.permute(list(range(self.n, 0, -1)))
+
     def xor(self, mask):
         "xor by mask (string in {0,1}^n)"
         assert(len(mask) == self.n)
@@ -646,43 +650,30 @@ def standard_few1(n):
         ['0' + '*' * i + '1' + '0' * (n-2-i) for i in range(n-2)] +\
         ['1' + '*' * (n-2) + '0'] +\
         ['*' * i + '1' + '0' * (n-2-i) + '1' for i in range(n-1)])
-    # if n == 3:
-    #     return Hitting(['01*', '110', '1*1', '*00', '001'])
-    # return Hitting(\
-    #     ['0' * i + '1' + '*' * (n - 1 - i) for i in range(1, n)] +\
-    #     ['100' + '*' * i + '1' + '0' * (n - i - 4) for i in range(n - 4)] +\
-    #     ['110' + '*' * (n - 4) + '0', '1*1' + '*' * (n - 3)] +\
-    #     ['1*0' + '*' * (n - 4) + '1', '*' + '0' * (n - 1)])
 
-def standard_few1b(n, alt = False):
-    "another construction with few 1's for n ≥ 3 (in two forms)"
-    if alt:
-        return standard_few1b(n).rotate(1).permute(list(range(1, n-1)) + [n, n-1])
-    assert(n >= 3)
-    return Hitting(\
-        ['0' * (n-1) + '*'] +\
-        ['*' * i + '1' + '0' * (n-1-i) for i in range(n-1)] +\
-        ['0' + '*' * i + '1' + '0' * (n-3-i) + '1' for i in range(n-2)] +\
-        ['1' + '*' * (n-2) + '1']
-        )
+def standard_few1_xor(n, i):
+    "constructions with few 1's for n ≥ 3; 0 ≤ i ≤ 4"
+    mask = ['0'*n, '0'*(n-1)+'1', '01'+'0'*(n-3)+'1', '1'+'0'*(n-1), '11'+'0'*(n-2)][i]
+    return standard_few1(n).xor(mask)
 
-def standard_few1c(n):
-    "yet another construction with few 1's for n ≥ 3"
-    return standard_few1b(n, True).nfs_flips([(0, 1), (2, n)])
-
-def standard_few1_iter(n):
-    "variant of standard_few1"
-    assert(n >= 3)
-    G = Hitting(['1*', '00', '01'])
-    F0 = Hitting(['01*', '110', '1*1', '*00', '001'])
-    return iteration_merge(F0, G, 1, 1, n - 3, False).rotate(1)
-
-def standard_few1b_iter(n):
-    "variant of standard_few1b"
-    assert(n >= 3)
-    G = Hitting(['0*', '10', '11'])
-    F0 = Hitting(['11*', '101', '0*1', '*00', '010'])
-    return iteration_merge(F0, G, 1, 1, n - 3, False).rotate(1)
+def standard_few1_xor_iter(n, i):
+    "iterative implementation of standard_few1_xor"
+    if i == 0:
+        G = Hitting(['1*', '00', '01'])
+        F0 = Hitting(['01*', '110', '1*1', '*00', '001'])
+    elif i == 1:
+        G = Hitting(['0*', '10', '11'])
+        F0 = Hitting(['11*', '101', '0*1', '*00', '010'])
+    elif i == 2:
+        G = Hitting(['0*', '10', '11'])
+        F0 = Hitting(['11*', '011', '0*0', '*01', '100'])
+    elif i == 3:
+        G = Hitting(['10', '00', '*1'])
+        F0 = Hitting(['1*0', '101', '00*', '010', '*11'])
+    elif i == 4:
+        G = Hitting(['10', '00', '*1'])
+        F0 = Hitting(['1*1', '100', '00*', '011', '*10'])
+    return iteration_merge(F0, G, 1, 1, n - 3)
 
 def standard_linear(n):
     "standard construction for n ≥ 3, joining the two points"
