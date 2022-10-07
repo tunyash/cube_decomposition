@@ -722,9 +722,9 @@ def standard_stars(n):
                 n -= 2
             return F
 
-def standard_homogeneous(t):
-    "homogeneous construct with t iterations"
-    F = homogeneous4()
+def standard_homogeneous(base, t):
+    "homogeneous construction with t iterations"
+    F = base
     for _ in range(t):
         F = F.split_all()
     return F
