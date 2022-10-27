@@ -91,8 +91,8 @@ class HittingMixin:
         assert('F' in dir(other))
         return list(sorted(self.F)) == list(sorted(other.F))
 
-    def properties(self):
-        "return several properties of self"
+    def dimension_histogram(self):
+        "return histogram of number of subcubes of given dimension"
         def histogram(data):
             D = {}
             for x in data:
@@ -100,11 +100,15 @@ class HittingMixin:
                     D[x] = 0
                 D[x] += 1
             return sorted(D.items(), key = lambda kv: kv[0], reverse = True)
+        return histogram(self.dimensions())
+
+    def properties(self):
+        "return several properties of self"
         res = {}
         res['variables'] = self.n
         res['clauses'] = self.m
         res['dim'] = self.dim()
-        res['dimensions'] = histogram(self.dimensions())
+        res['dimensions'] = self.dimension_histogram()
         res['hitting'] = self.is_hitting()
         res['tight'] = self.is_tight()
         res['irreducible'] = self.is_irreducible()
@@ -249,6 +253,10 @@ class Hitting(HittingMixin):
         D = {'0': {'*': '*', '0': '0', '1': '1'}, '1': {'*': '*', '0': '1', '1': '0'}}
         return Hitting([''.join(D[m][c] for (m,c) in zip(mask,x)) for x in self])
 
+    def complement(self):
+        "complement all subcubes (switch 0s and 1s)"
+        return self.xor('1' * self.n)
+
     def is_permutation(self, other, ret = False):
         "determine whether other is permutation of self; optionally return permutations"
         perms = [p for p in Permutations(self.n) if self.permute(p) == other]
@@ -360,11 +368,15 @@ class Hitting(HittingMixin):
             G[i], G[j] = nfs_flip(self.F[i], self.F[j])
         return Hitting(G)
 
-    def nfs_equivalent(self, other, wt = 1, ret = False):
+    def nfs_equivalent(self, other, allow_xor = False, wt = 1, ret = False):
         "check whether self is nfs-equivalent to toher using wt nfs-flips; optionally return proof"
         ops = list(itertools.combinations(self.nfs_pairs(), wt))
         ops = [L for L in ops if all(x == y or set(x).isdisjoint(set(y)) for x in L for y in L)]
-        rets = [(L, self.nfs_flips(L).is_permutation(other, ret=True)) for L in ops]
+        if allow_xor:
+            method = 'is_equivalent'
+        else:
+            method = 'is_permutation'
+        rets = [(L, getattr(self.nfs_flips(L), method)(other, ret=True)) for L in ops]
         rets = [(L, P) for (L, P) in rets if len(P) > 0]
         if ret:
             return rets
@@ -698,7 +710,7 @@ def homogeneous(n, k):
         return Hitting(['0000000*', '*0000010', '000010*1', '0000110*', '0000*110', '0001010*', '00010*10', '0001111*', '00011*01', '0001*011', '000*0111', '000*1000', '001000*0', '0010010*', '00101*01', '0010*011', '001101*1', '0011100*', '00111*11', '0011*010', '0011*100', '001*0001', '001*1110', '00*01010', '00*01111', '0100011*', '01001*11', '0100*010', '0100*100', '010101*0', '01010*11', '010*0000', '010*1101', '010*1110', '011001*0', '01100*01', '0110101*', '011011*1', '0110*000', '0111010*', '01111*01', '01111*10', '0111*111', '011*0011', '01*01001', '01*10010', '01*11000', '01*11011', '0*000011', '0*000101', '0*010001', '0*011010', '0*011100', '0*100111', '0*101100', '0*110000', '0*110110', '100000*1', '1000101*', '100011*0', '1000*000', '1000*111', '10010*11', '100111*1', '10011*00', '1001*001', '1001*010', '100*0101', '100*0110', '1010001*', '101001*1', '10100*00', '1010111*', '101100*0', '1011011*', '10110*01', '101*1001', '101*1010', '101*1100', '10*01101', '10*10100', '10*11011', '10*11110', '1100001*', '1100110*', '11001*10', '110100*1', '11010*10', '110111*0', '1101*000', '110*0100', '110*0111', '110*1011', '11100*11', '111010*0', '11101*01', '1110*100', '1111001*', '111101*1', '11110*00', '111110*1', '1111*110', '11*00000', '11*00101', '11*00110', '11*01111', '11*11010', '11*11101', '1*001001', '1*100001', '1*101011', '1*111000', '1*111111', '*0000100', '*0010000', '*0100110', '*0101000', '*0110011', '*0111101', '*1000001', '*1001000', '*1010101', '*1011001', '*1011111', '*1100010', '*1101110', '*1110001', '*1111100'])
 
 def homogeneous_database():
-    "database of known constructions"
+    "database of known homogeneous constructions"
     return {(n,k): homogeneous(n,k) for (n,k) in [(4,3),(6,4),(6,5),(7,5),(7,6),(8,6),(8,7)]}
 
 def special6():
@@ -922,3 +934,21 @@ def desarguesian_spread(t):
 def peitl():
     "return all irreducible hitting formulas of minimal size for n=4,5,6,7"
     return json.loads(open('peitl.json', 'r').read())
+
+###
+
+def decode_kurz(s):
+    "decode a hitting formula in Kurz encoding into list of subcubes, convert to Hitting if alphabet is binary"
+    parts = [int(t) for t in s.strip().split(' ')]
+    alph, n, m, values = *parts[:3], parts[3:]
+    assert(len(values) == n * m)
+    symbols = ['*' if i == alph else str(i) for i in values]
+    subcubes = [''.join(symbols[n*j:n*(j+1)]) for j in range(m)]
+    if alph == 2:
+        return Hitting(subcubes)
+    return subcubes
+
+def decode_kurz_file(name):
+    "decode a file containing list of hitting formulas in Kurz format"
+    contents = open(name, 'r').read().splitlines()
+    return [decode_kurz(s) for s in contents]
