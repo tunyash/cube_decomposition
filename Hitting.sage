@@ -304,6 +304,11 @@ class Hitting(HittingMixin):
             patterns[pattern].append(x)
         return patterns
 
+    def star_patterns(self):
+        "return counts of star patterns"
+        D = self.by_star_pattern()
+        return dict((k, len(D[k])) for k in D.keys())
+
     def to_plus_compressed(self):
         "construct an equivalent HittingPlus instance, compressing pairs of subcubes with the same star pattern"
         patterns = self.by_star_pattern()
