@@ -957,3 +957,44 @@ def decode_kurz_file(name):
     "decode a file containing list of hitting formulas in Kurz format"
     contents = open(name, 'r').read().splitlines()
     return [decode_kurz(s) for s in contents]
+
+###
+
+def points_complement(P):
+    n = len(P[0])
+    return [p for p in [''.join(s) for s in itertools.product('01', repeat=n)] if p not in P]
+
+def points_generate(n, f, g):
+    return [''.join(str(q%2) for q in list(L) + [f(L), g(L)])\
+        for L in itertools.product([0,1], repeat=n-2)]
+
+def weight_moment(L, k=1):
+    return binomial(sum(L), k)
+
+def majority(L):
+    n = len(L)
+    return int(2*sum(L) > n)
+
+def points_to_edges(points):
+    def dist(x,y):
+        return sum(a!=b for (a,b) in zip(x,y))
+    options = [(x, sum(dist(x,y) == 1 for y in points)) for x in points]
+    options = [(x,c) for (x,c) in options if c > 0]
+    if len(options) == 0:
+        yield points, []
+        return
+    x = min(options, key=lambda k: k[1])[0]
+    ys = [y for y in points if dist(x,y) == 1]
+    if len(ys) == 0:
+        yield points, []
+        return
+    for y in ys:
+        new_points = [p for p in points if p not in [x,y]]
+        for p, e in points_to_edges(new_points):
+            yield p, [joins(x,y)] + e
+
+def points_edges_guesses(P, only_irreducible = True):
+    for Q in points_to_edges(points_complement(P)):
+        F = Hitting(P + Q[0] + Q[1])
+        if not only_irreducible or F.is_irreducible():
+            yield F
