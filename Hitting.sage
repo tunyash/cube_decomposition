@@ -996,6 +996,11 @@ def decode_cplex_file(file_name):
     raw = [decode_cplex_solution(solution, True) for solution in root]
     return [H for H in raw if H.is_hitting()]
 
+def vertex_constraints(H):
+    "determine number of affine constraints on set of points"
+    V = VectorSpace(GF(2), H.n+1)
+    return V.subspace([V([1] + [int(c) for c in pt]) for pt in H.by_dimension()[0]]).codimension()
+
 ###
 
 def points_complement(P):
