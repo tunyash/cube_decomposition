@@ -952,3 +952,30 @@ def decode_kurz_file(name):
     "decode a file containing list of hitting formulas in Kurz format"
     contents = open(name, 'r').read().splitlines()
     return [decode_kurz(s) for s in contents]
+
+###
+
+import xml.etree.ElementTree as ET
+
+def decode_cplex_solution(xml):
+    "decode xml solution"
+    def to_subcube(s):
+        i = int(s)
+        r = ''
+        while i > 0:
+            r += '01*'[i % 3]
+            i = i // 3
+        return r
+    vars = xml[3]
+    assert(vars.tag == 'variables')
+    names = [var.attrib['name'][1:] for var in vars if var.attrib['name'].startswith('x') and var.attrib['value'] == '1']
+    subcubes = [to_subcube(s) for s in names]
+    n = max(len(s) for s in subcubes)
+    subcubes = [s + '0' * (n - len(s)) for s in subcubes]
+    return Hitting(subcubes)
+
+# e.g. many_terms_n_6_all.sol
+def decode_cplex_file(file_name):
+    "decode xml file containing many solutions"
+    root = ET.parse(file_name).getroot()
+    return [decode_cplex_solution(solution) for solution in root]
