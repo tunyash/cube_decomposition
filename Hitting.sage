@@ -226,9 +226,19 @@ class Hitting(HittingMixin):
             w[nones(x)] += 1
         return w
 
-    def by_weight(self):
+    def sort_by_weight(self):
         "arrange according to weight"
         return Hitting(sorted(self.F, key = lambda x: (self.n+1) * nones(x) + nstars(x)))
+
+    def by_dimension(self):
+        "return dictionary with subcubes arranged according to dimension"
+        D = dict()
+        for x in self:
+            dim = nstars(x)
+            if dim not in D:
+                D[dim] = []
+            D[dim].append(x)
+        return D
 
     def rotate(self, rot):
         "rotate left by rot"
@@ -962,7 +972,7 @@ def decode_kurz_file(name):
 
 import xml.etree.ElementTree as ET
 
-def decode_cplex_solution(xml):
+def decode_cplex_solution(xml, suppress_check = False):
     "decode xml solution"
     def to_subcube(s):
         i = int(s)
@@ -977,13 +987,14 @@ def decode_cplex_solution(xml):
     subcubes = [to_subcube(s) for s in names]
     n = max(len(s) for s in subcubes)
     subcubes = [s + '0' * (n - len(s)) for s in subcubes]
-    return Hitting(subcubes)
+    return Hitting(subcubes, suppress_check=suppress_check)
 
 # e.g. many_terms_n_6_all.sol
 def decode_cplex_file(file_name):
     "decode xml file containing many solutions"
     root = ET.parse(file_name).getroot()
-    return [decode_cplex_solution(solution) for solution in root]
+    raw = [decode_cplex_solution(solution, True) for solution in root]
+    return [H for H in raw if H.is_hitting()]
 
 ###
 
