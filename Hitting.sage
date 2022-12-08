@@ -304,6 +304,11 @@ class Hitting(HittingMixin):
             patterns[pattern].append(x)
         return patterns
 
+    def star_patterns(self):
+        "return counts of star patterns"
+        D = self.by_star_pattern()
+        return dict((k, len(D[k])) for k in D.keys())
+
     def to_plus_compressed(self):
         "construct an equivalent HittingPlus instance, compressing pairs of subcubes with the same star pattern"
         patterns = self.by_star_pattern()
@@ -955,27 +960,41 @@ def decode_kurz_file(name):
 
 ###
 
-import xml.etree.ElementTree as ET
+def points_complement(P):
+    n = len(P[0])
+    return [p for p in [''.join(s) for s in itertools.product('01', repeat=n)] if p not in P]
 
-def decode_cplex_solution(xml):
-    "decode xml solution"
-    def to_subcube(s):
-        i = int(s)
-        r = ''
-        while i > 0:
-            r += '01*'[i % 3]
-            i = i // 3
-        return r
-    vars = xml[3]
-    assert(vars.tag == 'variables')
-    names = [var.attrib['name'][1:] for var in vars if var.attrib['name'].startswith('x') and var.attrib['value'] == '1']
-    subcubes = [to_subcube(s) for s in names]
-    n = max(len(s) for s in subcubes)
-    subcubes = [s + '0' * (n - len(s)) for s in subcubes]
-    return Hitting(subcubes)
+def points_generate(n, f, g):
+    return [''.join(str(q%2) for q in list(L) + [f(L), g(L)])\
+        for L in itertools.product([0,1], repeat=n-2)]
 
-# e.g. many_terms_n_6_all.sol
-def decode_cplex_file(file_name):
-    "decode xml file containing many solutions"
-    root = ET.parse(file_name).getroot()
-    return [decode_cplex_solution(solution) for solution in root]
+def weight_moment(L, k=1):
+    return binomial(sum(L), k)
+
+def majority(L):
+    n = len(L)
+    return int(2*sum(L) > n)
+
+def points_to_edges(points):
+    def dist(x,y):
+        return sum(a!=b for (a,b) in zip(x,y))
+    options = [(x, sum(dist(x,y) == 1 for y in points)) for x in points]
+    options = [(x,c) for (x,c) in options if c > 0]
+    if len(options) == 0:
+        yield points, []
+        return
+    x = min(options, key=lambda k: k[1])[0]
+    ys = [y for y in points if dist(x,y) == 1]
+    if len(ys) == 0:
+        yield points, []
+        return
+    for y in ys:
+        new_points = [p for p in points if p not in [x,y]]
+        for p, e in points_to_edges(new_points):
+            yield p, [joins(x,y)] + e
+
+def points_edges_guesses(P, only_irreducible = True):
+    for Q in points_to_edges(points_complement(P)):
+        F = Hitting(P + Q[0] + Q[1])
+        if not only_irreducible or F.is_irreducible():
+            yield F
