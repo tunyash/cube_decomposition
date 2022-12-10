@@ -609,6 +609,16 @@ class HittingPlus(HittingMixin):
         V = VectorSpace(GF(2), self.n + 1)
         return V.subspace([V([1] + shift)] + [V([0] + b) for b in basis])
 
+    def decompress(self, x = None):
+        "decompress given subspace, or convert entire formula to a Hitting formula"
+        if x is None:
+            return Hitting(sum([self.decompress(x) for x in self], []))
+        stars = [i for i in range(self.n) if self.V([0] + [int(j==i) for j in range(self.n)]) in x]
+        positions = [0] + [i+1 for i in stars]
+        points = [p[1:] for p in x if all(p[i] == 1 for i in positions)]
+        F = [''.join('*' if i in stars else str(p[i]) for i in range(self.n)) for p in points]
+        return F
+
     def dimensions(self):
         return [x.dimension() for x in self.F]
 
@@ -624,12 +634,16 @@ class HittingPlus(HittingMixin):
         # the subspaces cover everything
         return sum(2^S.dimension() for S in self.F) == 2^(self.n + 1)
 
+    def intersection(self):
+        "return intersection of all subspaces"
+        I = self.F[0]
+        for S in self.F[1:]:
+            I = I.intersection(S)
+        return I
+
     def dim(self):
         "return effective dimension"
-        I = self.F[0]
-        for S in self.F:
-            I = I.intersection(S)
-        return self. n - I.dimension()
+        return self. n - self.intersection().dimension()
 
     def is_irreducible(self, witness = False):
         "determine whether formula is irreducible"
@@ -949,6 +963,27 @@ def desarguesian_spread(t):
 def peitl():
     "return all irreducible hitting formulas of minimal size for n=4,5,6,7"
     return json.loads(open('peitl.json', 'r').read())
+
+def large5():
+    "return a tight irreducible formula for n=5 with 40 subcubes"
+    F = [''.join(str(d) for d in S) for S in itertools.product([0,1], repeat=5) if\
+        S[0] ^^ S[1] ^^ S[2] == S[2] ^^ S[3] ^^ S[4] == 0]
+    F += ['001*0', '0101*', '1000*', '111*1']
+    F += ['*1001', '*0010', '1*100', '0*111']
+    F += ['00*01', '01*00', '10*11', '11*10']
+    return Hitting(F)
+
+def large6():
+    "return a tight irreducible formula for n=6 with 80 subcubes"
+    F = [''.join(str(d) for d in S) for S in itertools.product([0,1], repeat=6) if\
+        S[0] ^^ S[1] == S[2] ^^ S[3] == S[4] ^^ S[5]]
+    F += ['0010*1', '00011*', '01001*', '0111*0', '1000*1', '10110*', '11100*', '1101*0']
+    F += ['*10001', '1*0010', '0*1000', '*11011', '*00100', '1*0111', '0*1101', '*01110']
+    F += ['000*01', '00*010', '010*00', '01*111', '10*000', '101*11', '11*101', '111*10']
+#    F += ['0001*1', '00101*', '01001*', '0111*0', '1000*1', '10110*', '11010*', '1110*0']
+#    F += ['*10001', '1*0010', '0*0100', '*10111', '*01000', '1*1011', '0*1101', '*01110']
+#    F += ['00*001', '000*10', '01*000', '011*11', '100*00', '10*111', '111*01', '11*110']
+    return Hitting(F)
 
 ###
 
