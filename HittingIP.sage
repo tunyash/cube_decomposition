@@ -1,7 +1,7 @@
 import itertools
 
 class HittingIP:
-    def __init__(self, n, max_weight = None, ub = None, codim = None, solver = 'GLPK', lp = False):
+    def __init__(self, n, maximize_points = False, max_weight = None, ub = None, codim = None, solver = 'GLPK', lp = False):
         self.n = n
         if max_weight is None:
             max_weight = n
@@ -10,14 +10,17 @@ class HittingIP:
         self.subcubes = [x for x in self.subcubes if len([c for c in x if c == '1']) <= max_weight]
         if codim is not None:
             self.subcubes = [x for x in self.subcubes if len([c for c in x if c != '*']) == codim]
-        self.mip = MixedIntegerLinearProgram(maximization=False, solver=solver)
+        self.mip = MixedIntegerLinearProgram(maximization=True, solver=solver)
         if lp:
             self.c = self.mip.new_variable(nonnegative=True, real=True)
         else:
             self.c = self.mip.new_variable(nonnegative=True, integer=True)
         for s in self.subcubes:
             self.mip.set_max(self.c[s], 1)
-        self.mip.set_objective(sum(self.c[s] for s in self.subcubes))
+        if maximize_points:
+            self.mip.set_objective(sum(self.c[s] for s in self.subcubes if '*' not in s))
+        else:
+            self.mip.set_objective(sum(self.c[s] for s in self.subcubes))
         if ub is not None:
             self.mip.add_constraint(sum(self.c[s] for s in self.subcubes) <= ub)
         for pt in self.points:
@@ -42,7 +45,10 @@ class HittingIP:
             self.sol = self.mip.get_values(self.c)
             if lp == False:
                 self.sol = Hitting([k for (k,v) in self.sol.items() if v == 1])
-                self.value = len(self.sol)
+                if maximize_points:
+                    self.value = len(self.sol.by_dimension()[0])
+                else:
+                    self.value = len(self.sol)
         except sage.numerical.mip.MIPSolverException as e:
             self.error = e
             self.value = None

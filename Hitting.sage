@@ -983,8 +983,12 @@ def peitl():
     "return all irreducible hitting formulas of minimal size for n=4,5,6,7"
     return json.loads(open('peitl.json', 'r').read())
 
+def large4():
+    "return a tight irreducible formula for n=4 with 9 subcubes"
+    return Hitting(['0000', '0011', '1101', '1110', '*100', '*111', '0*01', '0*10', '10**'])
+
 def large5():
-    "return a tight irreducible formula for n=5 with 40 subcubes"
+    "return a tight irreducible formula for n=5 with 20 subcubes"
     F = [''.join(str(d) for d in S) for S in itertools.product([0,1], repeat=5) if\
         S[0] ^^ S[1] ^^ S[2] == S[2] ^^ S[3] ^^ S[4] == 0]
     F += ['001*0', '0101*', '1000*', '111*1']
@@ -993,7 +997,7 @@ def large5():
     return Hitting(F)
 
 def large6():
-    "return a tight irreducible formula for n=6 with 80 subcubes"
+    "return a tight irreducible formula for n=6 with 40 subcubes"
     F = [''.join(str(d) for d in S) for S in itertools.product([0,1], repeat=6) if\
         S[0] ^^ S[1] == S[2] ^^ S[3] == S[4] ^^ S[5]]
     F += ['0010*1', '00011*', '01001*', '0111*0', '1000*1', '10110*', '11100*', '1101*0']
