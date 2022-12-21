@@ -319,10 +319,26 @@ class Hitting(HittingMixin):
         D = self.by_star_pattern()
         return dict((k, len(D[k])) for k in D.keys())
 
+    def compress_subcubes(self, subcubes):
+        "compress a list of subcubes into a subspace; return None if impossible"
+        subspace = sum((self.subcube_to_subspace(S) for S in subcubes), 0)
+        if len(subspace) == 2 * sum(2^nstars(sc) for sc in subcubes):
+            return subspace
+        return None
+
+    def compress_by_star_pattern(self):
+        "compress subcubes by star pattern"
+        patterns = self.by_star_pattern()
+        return dict((k, self.compress_subcubes(patterns[k])) for k in patterns)
+
     def to_plus_compressed(self):
         "construct an equivalent HittingPlus instance, compressing pairs of subcubes with the same star pattern"
-        patterns = self.by_star_pattern()
-        return HittingPlus([sum((self.subcube_to_subspace(S) for S in val), 0) for val in patterns.values()])
+        subspaces = list(self.compress_by_star_pattern().values())
+        if None in subspaces:
+            return None
+        return HittingPlus(subspaces)
+        #patterns = self.by_star_pattern()
+        #return HittingPlus([sum((self.subcube_to_subspace(S) for S in val), 0) for val in patterns.values()])
 
     def split(self, i):
         "recursive construction which splits on the i'th coordinate"
@@ -983,9 +999,6 @@ def large6():
     F += ['0010*1', '00011*', '01001*', '0111*0', '1000*1', '10110*', '11100*', '1101*0']
     F += ['*10001', '1*0010', '0*1000', '*11011', '*00100', '1*0111', '0*1101', '*01110']
     F += ['000*01', '00*010', '010*00', '01*111', '10*000', '101*11', '11*101', '111*10']
-#    F += ['0001*1', '00101*', '01001*', '0111*0', '1000*1', '10110*', '11010*', '1110*0']
-#    F += ['*10001', '1*0010', '0*0100', '*10111', '*01000', '1*1011', '0*1101', '*01110']
-#    F += ['00*001', '000*10', '01*000', '011*11', '100*00', '10*111', '111*01', '11*110']
     return Hitting(F)
 
 ###
