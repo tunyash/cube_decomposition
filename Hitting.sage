@@ -693,8 +693,8 @@ def standard_few1(n):
         ['*' * i + '1' + '0' * (n-2-i) + '1' for i in range(n-1)])
 
 def standard_few1_xor(n, i):
-    "constructions with few 1's for n ≥ 3; 0 ≤ i ≤ 4"
-    mask = ['0'*n, '0'*(n-1)+'1', '01'+'0'*(n-3)+'1', '1'+'0'*(n-1), '11'+'0'*(n-2)][i]
+    "constructions with few 1's for n ≥ 3; 0 ≤ i ≤ 5"
+    mask = ['0'*n, '0'*(n-1)+'1', '01'+'0'*(n-3)+'1', '1'+'0'*(n-1), '11'+'0'*(n-2), '01'+'0'*(n-2)][i]
     return standard_few1(n).xor(mask)
 
 def standard_few1_xor_iter(n, i):
@@ -714,7 +714,10 @@ def standard_few1_xor_iter(n, i):
     elif i == 4:
         G = Hitting(['10', '00', '*1'])
         F0 = Hitting(['1*1', '100', '00*', '011', '*10'])
-    return iteration_merge(F0, G, 1, 1, n - 3)
+    elif i == 5:
+        G = Hitting(['1*', '00', '01'])
+        F0 = Hitting(['01*', '111', '1*0', '*01', '000'])
+    return iteration_merge(F0, G, 1, 1, n - 3, False).rotate(1)
 
 def standard_linear(n):
     "standard construction for n ≥ 3, joining the two points"
