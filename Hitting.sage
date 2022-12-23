@@ -340,6 +340,39 @@ class Hitting(HittingMixin):
         #patterns = self.by_star_pattern()
         #return HittingPlus([sum((self.subcube_to_subspace(S) for S in val), 0) for val in patterns.values()])
 
+    def compression_eligible(self):
+        "check whether all star patterns contain at most two subcubes, and the tightness condition holds"
+        intersection = None
+        for L in self.by_star_pattern().values():
+            if len(L) == 1:
+                pattern = L[0]
+            elif len(L) == 2:
+                pattern = joins(L[0], L[1])
+            else:
+                return False
+            pattern = [i for (i,b) in enumerate(pattern) if b == '*']
+            if intersection is None:
+                intersection = set(pattern)
+            else:
+                intersection = intersection.intersection(pattern)
+        return len(intersection) == 0
+
+    def same_first_star(self, other):
+        "check whether self and other have the same subcubes starting with *"
+        return set(s for s in self if s[0] == '*') == set(s for s in other if s[0] == '*')
+
+    def compression_params(self):
+        "return number of affine spaces after compression, in general and starting with *"
+        return len(self.by_star_pattern()), len([s for s in self.by_star_pattern() if s[0] != '*'])
+
+    def pad_left(self, n):
+        "add n stars to the left"
+        return Hitting(['*' * n + s for s in self])
+
+    def pad_right(self, n):
+        "add n stars to the right"
+        return Hitting([s + '*' * n for s in self])
+
     def split(self, i):
         "recursive construction which splits on the i'th coordinate"
         def split_line(x, i):
@@ -833,11 +866,14 @@ def kurz_linear(n, subcubes = False):
         H = kurz_iterative(H4, (n-4)//2)
     return H if subcubes else H.to_plus_compressed()
 
-def special7_linear():
-    "irreducible hitting(+) formula for n = 5 with 7 subspaces"
-    H = Hitting(['00***', '1001*', '1*00*', '0100*', '1*1*0',\
+def special5():
+    "formula used to generate irreducible hitting(+) formula special5_linear"
+    return Hitting(['00***', '1001*', '1*00*', '0100*', '1*1*0',\
          '*1*11', '101*1', '*1101', '011*0', '*1010'])
-    F = H.to_plus().F
+
+def special5_linear():
+    "irreducible hitting(+) formula for n = 5 with 7 subspaces"
+    F = special5().to_plus().F
     return HittingPlus([F[0], F[1]+F[3], F[2], F[4], F[5], F[6]+F[8], F[7]+F[9]])
 
 def cubic(n):
@@ -930,6 +966,12 @@ def best_linear(n):
         return standard(4).to_plus_compressed()
     else:
         return iterative_construction(special6a(), 1, (n-6)//2).to_plus_compressed()
+
+def compression_eligible_iterate(F, t, H = None):
+    "iterative construction for compression"
+    if H is None:
+        H = F
+    return iterative_construction(F, 1, t, F0 = H).to_plus_compressed()
 
 def best_linear_params(max_n):
     "return parameters of best_linear construction"
