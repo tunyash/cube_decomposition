@@ -1098,6 +1098,68 @@ def vertex_constraints(H):
     V = VectorSpace(GF(2), H.n+1)
     return V.subspace([V([1] + [int(c) for c in pt]) for pt in H.by_dimension()[0]]).codimension()
 
+def get_subspace(q, n, k, ix):
+    "get subspace for list of subspaces in subspaces_q_n_k.txt by index"
+    if 'cache' not in dir(get_subspace):
+        get_subspace.cache = dict()
+    if (q,n,k) not in get_subspace.cache:
+        get_subspace.cache[(q,n,k)] = [l.strip() for l in open(f'subspaces_{q}_{n}_{k}.txt').readlines()]
+    lines = get_subspace.cache[(q,n,k)]
+    assert(0 <= ix < int(lines[0]))
+    subspace = lines[2 + (k+1) * ix : 1 + (k+1) * (ix+1)]
+    F = GF(q)
+    return VectorSpace(F, n).subspace([[F(x) for x in l.split(' ')] for l in subspace])
+
+def decode_subspaces(q, n, s):
+    "decode list of the form qk_ix, ..."
+    s = [x.strip() for x in s.strip().split(',')]
+    assert(all(y.startswith('y') for y in s))
+    s = [map(int, y[1:].split('_')) for y in s]
+    s = [get_subspace(q, n, k, ix) for (k, ix) in s]
+    contents = sum((list(ss) for ss in s), [])
+    F = GF(q)
+    V = VectorSpace(F, n)
+    pts = [pt for pt in itertools.product(list(F), repeat = n) if pt[0] == 1 and V(pt) not in contents]
+    return HittingPlus([V.subspace(pts)] + s)
+
+def hitting_plus_for_many_subcubes_2_8():
+    "examples of hitting plus formulas which can be used to generate large hitting formulas of length 7 via decompress()"
+    example1 = 'y4_13907, y4_33210, y4_33310, y4_35621, y4_75566, y4_77477, y4_120882, y4_134197, y4_134560'
+    example2 = 'y4_16923, y4_17603, y4_194883, y4_195684, y5_33355, y5_53120, y5_60644, y5_66690'
+    return [decode_subspaces(2, 8, example) for example in [example1, example2]]
+
+def convert_subspace_to_latex(ss):
+    "convert one of edge subspaces in the above to latex"
+    B = [s[Integer(1):] for s in ss.basis()]
+    negs, B = B[Integer(0)], B[Integer(1):]
+    star = [sum(map(int, v)) for v in B].index(Integer(1))
+    star_pos = [j for (j,val) in enumerate(B[star]) if val == Integer(1)][Integer(0)]
+    B = B[:star] + B[star+Integer(1):]
+    assert(len(B) <= Integer(3))
+    alpha = '0abcdefg'
+    trans = [('c', 'c = a \\oplus b'), ('e', 'e = a \\oplus d'), ('f', 'f = b \\oplus d'), ('g', 'g = a \\oplus b \\oplus d')]
+    s = ''
+    for i in range(Integer(7)):
+        if i == star_pos:
+            s += '*'
+        else:
+            c = alpha[sum(Integer(2)**j for (j,v) in enumerate(B) if v[i] == Integer(1))]
+            if c == '0':
+                s += c if negs[i] == Integer(0) else '1'
+            else:
+                s += c if negs[i] == Integer(0) else '\\bar{' + c + '}'
+    L = []
+    for (c, t) in trans:
+        if c in s:
+            L.append(t)
+    if len(L) > Integer(0):
+        s += '\\colon ' + ', '.join(L)    
+    return s
+
+def convert_edge_subspaces_to_latex(H):
+    "convert all edges subspaces in the above to latex"
+    return ' \\\\\n'.join('&' + to_latex(s) for s in H[1:])
+
 ###
 
 def points_complement(P):
