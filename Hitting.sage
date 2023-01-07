@@ -1049,6 +1049,66 @@ def large6():
 
 ###
 
+# Construction from A. L. Perezhogin, On special perfect matchings in a Boolean cube
+
+def xor_bit(a, b):
+    "compute a xor b, where a xor * = * xor b = *"
+    if a == '*':
+        return '*'
+    if a == '0':
+        return b
+    if b == '0':
+        return '1'
+    if b == '1':
+        return '0'
+    return '*'
+
+def xor(a, b):
+    "compute bitwise xor (see xor_bit for semantics)"
+    return ''.join(xor_bit(A, B) for (A, B) in zip(a, b))
+
+def Perezhogin(n):
+    "return regular eight for n ≥ 4, n ≠ 5"
+    assert(n == 4 or n >= 6)
+    if n == 4:
+        M00 = ['000*', '10*0', '0*10', '*100', '111*', '01*1', '1*01', '*011']
+        M01 = ['100*', '00*1', '0*00', '*010', '011*', '11*0', '1*11', '*101']
+        M11 = ['001*', '01*0', '0*01', '*000', '110*', '10*1', '1*10', '*111']
+        M10 = ['010*', '00*0', '1*00', '*001', '101*', '11*1', '0*11', '*110']
+        x00 = '000*'
+        x01 = '00*1'
+        x11 = '001*'
+        x10 = '00*0'
+        return ({'00': M00, '01': M01, '10': M10, '11': M11}, \
+            {'00': x00, '01': x01, '10': x10, '11': x11})
+    elif n == 7:
+        raise "Not implemented yet"
+    M, u = Perezhogin(n - 2)
+    ux = u['00'][:-2]
+    N = {}
+    for a in ['00', '01', '11', '10']:
+        F = [s + xor(a, b) for b in M.keys() for s in M[b] if s != u[b]]
+        F += [ux + t[:2] + xor(a, t[2:]) for t in ['010*', '11*1', '101*', '00*0']]
+        N[a] = F
+    v = { '00': ux+'010*', '01': ux+'01*1', '11': ux+'011*', '10': ux+'01*0' }
+    return N, v
+
+def ProperEight(E):
+    "check the conditions of proper 8"
+    M, u = E
+    for a in M.keys():
+        for b in M.keys():
+            if a != b:
+                if not set(M[a]).isdisjoint(M[b]):
+                    return f'M[{a}] intersects M[{b}] in {set(M[a]).intersection(set(M[b]))}'
+    if not all(u[a] in M[a] for a in M.keys()):
+        return 'u[a] not in M[a] for ' + ', '.join(a for a in M.keys() if u[a] not in m[a])
+    if not all(u[a][:-2] == u['00'][:-2] for a in u.keys()):
+        return 'the u have no common prefix'
+    return True
+
+###
+
 def decode_kurz(s):
     "decode a hitting formula in Kurz encoding into list of subcubes, convert to Hitting if alphabet is binary"
     parts = [int(t) for t in s.strip().split(' ')]
