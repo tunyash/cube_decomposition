@@ -136,11 +136,14 @@ class Hitting(HittingMixin):
     def dimensions(self):
         return [nstars(x) for x in self.F]
 
-    def is_hitting(self):
+    def is_hitting(self, witness = False):
         "determine whether given formula is hitting"
         n, m, A = self.n, self.m, self.F
         if any(not disjoint(A[i],A[j]) for i in range(m) for j in range(i)):
-            return [(A[i],A[j]) for i in range(m) for j in range(i) if not disjoint(A[i],A[j])]
+            if witness:
+                return [(A[i],A[j]) for i in range(m) for j in range(i) if not disjoint(A[i],A[j])]
+            else:
+                return False
         return sum(2^nstars(s) for s in A) == 2^n
 
     def is_irreducible(self, witness = False):
@@ -1070,38 +1073,72 @@ def xor(a, b):
 def Perezhogin(n):
     "return regular eight for n ≥ 4, n ≠ 5"
     assert(n == 4 or n >= 6)
+    bits = ['00', '01', '11', '10']
     if n == 4:
-        M00 = ['000*', '10*0', '0*10', '*100', '111*', '01*1', '1*01', '*011']
-        M01 = ['100*', '00*1', '0*00', '*010', '011*', '11*0', '1*11', '*101']
-        M11 = ['001*', '01*0', '0*01', '*000', '110*', '10*1', '1*10', '*111']
-        M10 = ['010*', '00*0', '1*00', '*001', '101*', '11*1', '0*11', '*110']
-        x00 = '000*'
-        x01 = '00*1'
-        x11 = '001*'
-        x10 = '00*0'
-        return ({'00': M00, '01': M01, '10': M10, '11': M11}, \
-            {'00': x00, '01': x01, '10': x10, '11': x11})
+        M = {}
+        M['00'] = Hitting(['000*', '10*0', '0*10', '*100', '111*', '01*1', '1*01', '*011'])
+        M['01'] = Hitting(['100*', '00*1', '0*00', '*010', '011*', '11*0', '1*11', '*101'])
+        M['11'] = Hitting(['001*', '01*0', '0*01', '*000', '110*', '10*1', '1*10', '*111'])
+        M['10'] = Hitting(['010*', '00*0', '1*00', '*001', '101*', '11*1', '0*11', '*110'])
+        u = {'00': '000*', '01': '00*1', '11': '001*', '10': '00*0'}
+        return M, u
     elif n == 7:
-        raise "Not implemented yet"
+        M4, u4 = Perezhogin(4)
+        pre = {'00': ['000', '011'], '01': ['100', '111'], '11': ['110', '101'], '10': ['010', '001']}
+        rem0 = ['000111*', '1001*11', '11010*1', '010*001', '011000*', '1110*00', '10101*0', '001*110']
+        add0 = ['*001111', '1*01011', '*101001', '01*0001', '*110000', '1*10100', '*010110', '00*1110']
+        M = {}
+        for k in bits:
+            kr = k[1]+k[0]
+            ks = {'00': k, '01': kr, '11': k, '10': kr}
+            L = [p + s for l in bits for p in pre[l] for s in M4[xor(l, ks[l])]]
+            if k[0] == k[1]:
+                rem = rem0[:]
+                add = add0[:]
+            else:
+                rem = [s[:-2] + s[-1] + s[-2] for s in rem0]
+                add = [s[:-2] + s[-1] + s[-2] for s in add0]
+            rem = [s[:-2] + xor(s[-2:], k) for s in rem]
+            add = [s[:-2] + xor(s[-2:], k) for s in add]
+            M[k] = Hitting([s for s in L if s not in rem] + add)
+        u = {'00': '000000*', '01': '00000*1', '11': '000001*', '10': '00000*0'}
+        return M, u
     M, u = Perezhogin(n - 2)
-    M = { k: [s for s in M[k] if s != u[k]] for k in M.keys() }
     prefix = u['00'][:-2]
-    # TBD
+    suffixes = { '00': '010*', '01': '11*1', '11': '101*', '10': '00*0' }
+    N = {k: [] for k in bits}
+    for k in bits:
+        kr = k[1]+k[0]
+        ks = {'00': k, '01': kr, '11': k, '10': kr}
+        for l in bits:
+            N[k].extend([s + xor(ks[l],l) for s in M[l] if s != u[l]])
+            N[k].append(prefix + xor(suffixes[l], ks[l]+'00'))
+        N[k] = Hitting(N[k])
+    v = {'00': prefix + '010*', '01': prefix + '01*1', '11': prefix + '011*', '10': prefix + '01*0'}
     return N, v
 
-def ProperEight(E):
+def Perezhogin_maximal(n):
+    "return tight irreducible formula with maximal number of terms"
+    assert(is_odd(n) and n >= 3) # in the future might work also in the even case
+    return Perezhogin(n+1)[0]['00'].decompose(0)[0]
+
+def proper_eight(E, irreducibility=False):
     "check the conditions of proper 8"
     M, u = E
+    if irreducibility:
+        for a in M.keys():
+            if not M[a].is_tight_irreducible():
+                print(f'M[{a}] not tight irreducible')
     for a in M.keys():
         for b in M.keys():
-            if a != b:
+            if a < b:
                 if not set(M[a]).isdisjoint(M[b]):
-                    return f'M[{a}] intersects M[{b}] in {set(M[a]).intersection(set(M[b]))}'
-    if not all(u[a] in M[a] for a in M.keys()):
-        return 'u[a] not in M[a] for ' + ', '.join(a for a in M.keys() if u[a] not in m[a])
+                    print(f'M[{a}] intersects M[{b}] in {set(M[a]).intersection(set(M[b]))}')
+    for a in M.keys():
+        if u[a] not in M[a]:
+            print(f'u[{a}] is not in M[{a}]')
     if not all(u[a][:-2] == u['00'][:-2] for a in u.keys()):
-        return 'the u have no common prefix'
-    return True
+        print('the u have no common prefix')
 
 ###
 
