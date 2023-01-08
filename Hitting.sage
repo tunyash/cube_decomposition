@@ -1084,13 +1084,9 @@ def Perezhogin(n):
     elif n == 7:
         raise "Not implemented yet"
     M, u = Perezhogin(n - 2)
-    ux = u['00'][:-2]
-    N = {}
-    for a in ['00', '01', '11', '10']:
-        F = [s + xor(a, b) for b in M.keys() for s in M[b] if s != u[b]]
-        F += [ux + t[:2] + xor(a, t[2:]) for t in ['010*', '11*1', '101*', '00*0']]
-        N[a] = F
-    v = { '00': ux+'010*', '01': ux+'01*1', '11': ux+'011*', '10': ux+'01*0' }
+    M = { k: [s for s in M[k] if s != u[k]] for k in M.keys() }
+    prefix = u['00'][:-2]
+    # TBD
     return N, v
 
 def ProperEight(E):
