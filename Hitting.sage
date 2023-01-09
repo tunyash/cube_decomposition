@@ -1070,7 +1070,7 @@ def xor(a, b):
     "compute bitwise xor (see xor_bit for semantics)"
     return ''.join(xor_bit(A, B) for (A, B) in zip(a, b))
 
-def Perezhogin(n):
+def Perezhogin(n, flip=True):
     "return regular eight for n ≥ 4, n ≠ 5"
     assert(n == 4 or n >= 6)
     bits = ['00', '01', '11', '10']
@@ -1103,7 +1103,7 @@ def Perezhogin(n):
             M[k] = Hitting([s for s in L if s not in rem] + add)
         u = {'00': '000000*', '01': '00000*1', '11': '000001*', '10': '00000*0'}
         return M, u
-    M, u = Perezhogin(n - 2)
+    M, u = Perezhogin(n - 2, flip=flip)
     prefix = u['00'][:-2]
     suffixes = { '00': '010*', '01': '11*1', '11': '101*', '10': '00*0' }
     N = {k: [] for k in bits}
@@ -1115,12 +1115,16 @@ def Perezhogin(n):
             N[k].append(prefix + xor(suffixes[l], ks[l]+'00'))
         N[k] = Hitting(N[k])
     v = {'00': prefix + '010*', '01': prefix + '01*1', '11': prefix + '011*', '10': prefix + '01*0'}
+    if flip:
+        mask = '0' * (n - 3) + '100'
+        N = {k: Hitting([xor(s,mask) for s in N[k]]) for k in bits}
+        v = {k: xor(v[k],mask) for k in bits}
     return N, v
 
-def Perezhogin_maximal(n):
-    "return tight irreducible formula with maximal number of terms"
+def Perezhogin_maximum(n, flip=True):
+    "return tight irreducible formula with maximum number of terms"
     assert(is_odd(n) and n >= 3) # in the future might work also in the even case
-    return Perezhogin(n+1)[0]['00'].decompose(0)[0]
+    return Perezhogin(n+1, flip=flip)[0]['00'].decompose(0)[0]
 
 def proper_eight(E, irreducibility=False):
     "check the conditions of proper 8"
