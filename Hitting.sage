@@ -1050,6 +1050,25 @@ def large6():
     F += ['000*01', '00*010', '010*00', '01*111', '10*000', '101*11', '11*101', '111*10']
     return Hitting(F)
 
+def kisielewicz(n):
+    assert(is_odd(n))
+    def generate(m):
+        if m == 0:
+            yield ''
+        elif m == 1:
+            yield '0'
+        else:
+            for s in generate(m - 1):
+                yield s + '0'
+            for s in generate(m - 2):
+                yield s + '*1'
+    F = ['1' * n]
+    F += ['0' + s for s in generate(n - 1)]
+    if n > 1:
+        F += ['*1' + s for s in generate(n - 2)]
+        F += ['1' + s + '*' for s in generate(n - 2)]
+    return Hitting(F)
+
 ###
 
 # Construction from A. L. Perezhogin, On special perfect matchings in a Boolean cube
