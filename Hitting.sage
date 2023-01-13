@@ -1089,79 +1089,123 @@ def xor(a, b):
     "compute bitwise xor (see xor_bit for semantics)"
     return ''.join(xor_bit(A, B) for (A, B) in zip(a, b))
 
-def Perezhogin(n, flip=True):
-    "return regular eight for n ≥ 4, n ≠ 5"
-    assert(n == 4 or n >= 6)
-    bits = ['00', '01', '11', '10']
-    if n == 4:
-        M = {}
-        M['00'] = Hitting(['000*', '10*0', '0*10', '*100', '111*', '01*1', '1*01', '*011'])
-        M['01'] = Hitting(['100*', '00*1', '0*00', '*010', '011*', '11*0', '1*11', '*101'])
-        M['11'] = Hitting(['001*', '01*0', '0*01', '*000', '110*', '10*1', '1*10', '*111'])
-        M['10'] = Hitting(['010*', '00*0', '1*00', '*001', '101*', '11*1', '0*11', '*110'])
-        u = {'00': '000*', '01': '00*1', '11': '001*', '10': '00*0'}
-        return M, u
-    elif n == 7:
-        M4, u4 = Perezhogin(4)
-        pre = {'00': ['000', '011'], '01': ['100', '111'], '11': ['110', '101'], '10': ['010', '001']}
-        rem0 = ['000111*', '1001*11', '11010*1', '010*001', '011000*', '1110*00', '10101*0', '001*110']
-        add0 = ['*001111', '1*01011', '*101001', '01*0001', '*110000', '1*10100', '*010110', '00*1110']
-        M = {}
-        for k in bits:
-            kr = k[1]+k[0]
-            ks = {'00': k, '01': kr, '11': k, '10': kr}
-            L = [p + s for l in bits for p in pre[l] for s in M4[xor(l, ks[l])]]
-            if k[0] == k[1]:
-                rem = rem0[:]
-                add = add0[:]
-            else:
-                rem = [s[:-2] + s[-1] + s[-2] for s in rem0]
-                add = [s[:-2] + s[-1] + s[-2] for s in add0]
-            rem = [s[:-2] + xor(s[-2:], k) for s in rem]
-            add = [s[:-2] + xor(s[-2:], k) for s in add]
-            M[k] = Hitting([s for s in L if s not in rem] + add)
-        u = {'00': '000000*', '01': '00000*1', '11': '000001*', '10': '00000*0'}
-        return M, u
-    M, u = Perezhogin(n - 2, flip=flip)
-    prefix = u['00'][:-2]
-    suffixes = { '00': '010*', '01': '11*1', '11': '101*', '10': '00*0' }
-    N = {k: [] for k in bits}
-    for k in bits:
-        kr = k[1]+k[0]
-        ks = {'00': k, '01': kr, '11': k, '10': kr}
-        for l in bits:
-            N[k].extend([s + xor(ks[l],l) for s in M[l] if s != u[l]])
-            N[k].append(prefix + xor(suffixes[l], ks[l]+'00'))
-        N[k] = Hitting(N[k])
-    v = {'00': prefix + '010*', '01': prefix + '01*1', '11': prefix + '011*', '10': prefix + '01*0'}
-    if flip:
-        mask = '0' * (n - 3) + '100'
-        N = {k: Hitting([xor(s,mask) for s in N[k]]) for k in bits}
-        v = {k: xor(v[k],mask) for k in bits}
-    return N, v
+# def Perezhogin(n, flip=True):
+#     "return regular eight for n ≥ 4, n ≠ 5"
+#     assert(n == 4 or n >= 6)
+#     bits = ['00', '01', '11', '10']
+#     if n == 4:
+#         M = {}
+#         M['00'] = Hitting(['000*', '10*0', '0*10', '*100', '111*', '01*1', '1*01', '*011'])
+#         M['01'] = Hitting(['100*', '00*1', '0*00', '*010', '011*', '11*0', '1*11', '*101'])
+#         M['11'] = Hitting(['001*', '01*0', '0*01', '*000', '110*', '10*1', '1*10', '*111'])
+#         M['10'] = Hitting(['010*', '00*0', '1*00', '*001', '101*', '11*1', '0*11', '*110'])
+#         u = {'00': '000*', '01': '00*1', '11': '001*', '10': '00*0'}
+#         return M, u
+#     elif n == 7:
+#         M4, u4 = Perezhogin(4)
+#         pre = {'00': ['000', '011'], '01': ['100', '111'], '11': ['110', '101'], '10': ['010', '001']}
+#         rem0 = ['000111*', '1001*11', '11010*1', '010*001', '011000*', '1110*00', '10101*0', '001*110']
+#         add0 = ['*001111', '1*01011', '*101001', '01*0001', '*110000', '1*10100', '*010110', '00*1110']
+#         M = {}
+#         for k in bits:
+#             kr = k[1]+k[0]
+#             ks = {'00': k, '01': kr, '11': k, '10': kr}
+#             L = [p + s for l in bits for p in pre[l] for s in M4[xor(l, ks[l])]]
+#             if k[0] == k[1]:
+#                 rem = rem0[:]
+#                 add = add0[:]
+#             else:
+#                 rem = [s[:-2] + s[-1] + s[-2] for s in rem0]
+#                 add = [s[:-2] + s[-1] + s[-2] for s in add0]
+#             rem = [s[:-2] + xor(s[-2:], k) for s in rem]
+#             add = [s[:-2] + xor(s[-2:], k) for s in add]
+#             M[k] = Hitting([s for s in L if s not in rem] + add)
+#         u = {'00': '000000*', '01': '00000*1', '11': '000001*', '10': '00000*0'}
+#         return M, u
+#     M, u = Perezhogin(n - 2, flip=flip)
+#     prefix = u['00'][:-2]
+#     suffixes = { '00': '010*', '01': '11*1', '11': '101*', '10': '00*0' }
+#     N = {k: [] for k in bits}
+#     for k in bits:
+#         kr = k[1]+k[0]
+#         ks = {'00': k, '01': kr, '11': k, '10': kr}
+#         for l in bits:
+#             N[k].extend([s + xor(ks[l],l) for s in M[l] if s != u[l]])
+#             N[k].append(prefix + xor(suffixes[l], ks[l]+'00'))
+#         N[k] = Hitting(N[k])
+#     v = {'00': prefix + '010*', '01': prefix + '01*1', '11': prefix + '011*', '10': prefix + '01*0'}
+#     if flip:
+#         mask = '0' * (n - 3) + '100'
+#         N = {k: Hitting([xor(s,mask) for s in N[k]]) for k in bits}
+#         v = {k: xor(v[k],mask) for k in bits}
+#     return N, v
 
-def Perezhogin_maximum(n, flip=True):
-    "return tight irreducible formula with maximum number of terms"
-    assert(is_odd(n) and n >= 3) # in the future might work also in the even case
-    return Perezhogin(n+1, flip=flip)[0]['00'].decompose(0)[0]
+# def Perezhogin_maximum(n, flip=True):
+#     "return tight irreducible formula with maximum number of terms"
+#     assert(is_odd(n) and n >= 3) # in the future might work also in the even case
+#     return Perezhogin(n+1, flip=flip)[0]['00'].decompose(0)[0]
 
-def proper_eight(E, irreducibility=False):
-    "check the conditions of proper 8"
-    M, u = E
-    if irreducibility:
-        for a in M.keys():
-            if not M[a].is_tight_irreducible():
-                print(f'M[{a}] not tight irreducible')
-    for a in M.keys():
-        for b in M.keys():
-            if a < b:
-                if not set(M[a]).isdisjoint(M[b]):
-                    print(f'M[{a}] intersects M[{b}] in {set(M[a]).intersection(set(M[b]))}')
-    for a in M.keys():
-        if u[a] not in M[a]:
-            print(f'u[{a}] is not in M[{a}]')
-    if not all(u[a][:-2] == u['00'][:-2] for a in u.keys()):
-        print('the u have no common prefix')
+# def proper_eight(E, irreducibility=False):
+#     "check the conditions of proper 8"
+#     M, u = E
+#     if irreducibility:
+#         for a in M.keys():
+#             if not M[a].is_tight_irreducible():
+#                 print(f'M[{a}] not tight irreducible')
+#     for a in M.keys():
+#         for b in M.keys():
+#             if a < b:
+#                 if not set(M[a]).isdisjoint(M[b]):
+#                     print(f'M[{a}] intersects M[{b}] in {set(M[a]).intersection(set(M[b]))}')
+#     for a in M.keys():
+#         if u[a] not in M[a]:
+#             print(f'u[{a}] is not in M[{a}]')
+#     if not all(u[a][:-2] == u['00'][:-2] for a in u.keys()):
+#         print('the u have no common prefix')
+
+def Perezhogin_iterate(F, times):
+    "modified Perezhogin iteration"
+    assert(times >= 0)
+    if times == 0:
+        return F
+    F = Perezhogin_iterate(F, times - 1)
+    n = F.n
+    H = ['0' * (n-2) + y for y in ['000*', '01*0', '111*', '10*1']]
+    for x in F:
+        if x == '0' * (n-1) + '*':
+            continue
+        s, a, b = x[:-2], x[-2], x[-1]
+        A, B = xor(a, '1'), xor(b, '1')
+        H += [s+B+a+'01', s+a+b+'00', s+b+A+'10', s+A+B+'11']
+    return Hitting(H)
+
+def Perezhogin_large(n):
+    "return formula of maximum size computed according to Perezhogin's method"
+    if is_odd(n):
+        assert(n >= 3)
+        H = Hitting(['100', '*10', '1*1', '00*', '011'])
+        return Perezhogin_iterate(H, (n-3)/2)
+    if is_even(n):
+        assert(n >= 6)
+        H = Hitting(['000111', '000010', '001101', '001000', '010100', '010001', '011110', '011011',
+                     '100100', '100001', '101110', '101011', '110111', '110010', '111101', '111000',
+                     '001*10', '00000*', '01001*', '011*01', '100*10', '10110*', '11111*', '110*01',
+                     '*10110', '1*0011', '0*1111', '*11010', '*00101', '1*0000', '0*1100', '*01001',
+                     '0001*0', '00*011', '0101*1', '01*000', '10*111', '1010*0', '11*100', '1110*1'])
+        return Perezhogin_iterate(H, (n-6)/2)
+
+def Perezhogin_homogeneous(n):
+    "return homogeneous formula computed according to Perezhogin's method"
+    if is_even(n):
+        assert(n >= 4)
+        H = Perezhogin_large(3)
+        H = H.merge(H.xor('111'))
+        return Perezhogin_iterate(H, (n-4)/2)
+    if is_odd(n):
+        assert(n >= 7)
+        H = Perezhogin_large(6)
+        H = H.merge(H.xor('110000'))
+        return Perezhogin_iterate(H, (n-7)/2)
 
 ###
 
