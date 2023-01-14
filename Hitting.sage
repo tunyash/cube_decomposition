@@ -1187,11 +1187,17 @@ def Perezhogin_large(n):
         return Perezhogin_iterate(H, (n-3)/2)
     if is_even(n):
         assert(n >= 6)
-        H = Hitting(['000111', '000010', '001101', '001000', '010100', '010001', '011110', '011011',
-                     '100100', '100001', '101110', '101011', '110111', '110010', '111101', '111000',
-                     '001*10', '00000*', '01001*', '011*01', '100*10', '10110*', '11111*', '110*01',
-                     '*10110', '1*0011', '0*1111', '*11010', '*00101', '1*0000', '0*1100', '*01001',
-                     '0001*0', '00*011', '0101*1', '01*000', '10*111', '1010*0', '11*100', '1110*1'])
+        # also works, but not Perezhogin_valid!
+        # H = Hitting(['000111', '000010', '001101', '001000', '010100', '010001', '011110', '011011',
+        #              '100100', '100001', '101110', '101011', '110111', '110010', '111101', '111000',
+        #              '001*10', '00000*', '01001*', '011*01', '100*10', '10110*', '11111*', '110*01',
+        #              '*10110', '1*0011', '0*1111', '*11010', '*00101', '1*0000', '0*1100', '*01001',
+        #              '0001*0', '00*011', '0101*1', '01*000', '10*111', '1010*0', '11*100', '1110*1'])
+        H = Hitting(['001101', '000100', '001011', '000010', '011000', '010001', '011110', '010111',
+                     '101000', '100001', '101110', '100111', '111101', '110100', '111011', '110010', 
+                     '00*110', '00000*', '01010*', '01*011', '10*100', '10101*', '11111*', '11*001', 
+                     '*11100', '1*0101', '0*1111', '*10110', '*01001', '1*0000', '0*1010', '*00011', 
+                     '001*00', '0001*1', '011*01', '0100*0', '1011*1', '100*10', '1110*0', '110*11'])
         return Perezhogin_iterate(H, (n-6)/2)
 
 def Perezhogin_homogeneous(n):
@@ -1206,6 +1212,11 @@ def Perezhogin_homogeneous(n):
         H = Perezhogin_large(6)
         H = H.merge(H.xor('110000'))
         return Perezhogin_iterate(H, (n-7)/2)
+
+def Perezhogin_valid(H):
+    "determine whether formula satisfies requirements of Perezhogin_iterate"
+    return '0' * (H.n - 1) + '*' in H and \
+        all(xor(s, '0' * (H.n - 2) + '11') not in H for s in H)
 
 ###
 
@@ -1290,35 +1301,35 @@ def hitting_plus_for_many_subcubes_2_8():
 
 def convert_subspace_to_latex(ss):
     "convert one of edge subspaces in the above to latex"
-    B = [s[Integer(1):] for s in ss.basis()]
-    negs, B = B[Integer(0)], B[Integer(1):]
-    star = [sum(map(int, v)) for v in B].index(Integer(1))
-    star_pos = [j for (j,val) in enumerate(B[star]) if val == Integer(1)][Integer(0)]
-    B = B[:star] + B[star+Integer(1):]
-    assert(len(B) <= Integer(3))
+    B = [s[1:] for s in ss.basis()]
+    negs, B = B[0], B[1:]
+    star = [sum(map(int, v)) for v in B].index(1)
+    star_pos = [j for (j,val) in enumerate(B[star]) if val == 1][0]
+    B = B[:star] + B[star+1:]
+    assert(len(B) <= 4)
     alpha = '0abcdefg'
     trans = [('c', 'c = a \\oplus b'), ('e', 'e = a \\oplus d'), ('f', 'f = b \\oplus d'), ('g', 'g = a \\oplus b \\oplus d')]
     s = ''
-    for i in range(Integer(7)):
+    for i in range(len(negs)):
         if i == star_pos:
             s += '*'
         else:
-            c = alpha[sum(Integer(2)**j for (j,v) in enumerate(B) if v[i] == Integer(1))]
+            c = alpha[sum(2^j for (j,v) in enumerate(B) if v[i] == 1)]
             if c == '0':
-                s += c if negs[i] == Integer(0) else '1'
+                s += c if negs[i] == 0 else '1'
             else:
-                s += c if negs[i] == Integer(0) else '\\bar{' + c + '}'
+                s += c if negs[i] == 0 else '\\bar{' + c + '}'
     L = []
     for (c, t) in trans:
         if c in s:
             L.append(t)
-    if len(L) > Integer(0):
+    if len(L) > 0:
         s += '\\colon ' + ', '.join(L)    
     return s
 
 def convert_edge_subspaces_to_latex(H):
     "convert all edges subspaces in the above to latex"
-    return ' \\\\\n'.join('&' + to_latex(s) for s in H[1:])
+    return ' \\\\\n'.join('&' + convert_subspace_to_latex(s) for s in H[1:])
 
 ###
 
